@@ -35,6 +35,44 @@ interface EditorContextType {
 
 const WebsiteEditorContext = createContext<EditorContextType | undefined>(undefined);
 
+// Helper function to get default content for block types
+function getDefaultContentForBlockType(blockType: string): any {
+  switch (blockType) {
+    case 'heading':
+      return { text: 'New Heading' };
+    case 'text':
+      return { text: 'Enter your text content here...' };
+    case 'hero':
+      return {
+        title: 'Welcome to Our Site',
+        subtitle: 'Your journey starts here'
+      };
+    case 'cta':
+      return {
+        title: 'Ready to Get Started?',
+        buttonText: 'Get Started',
+        buttonUrl: '#'
+      };
+    case 'image':
+      return {
+        url: '',
+        alt: 'Image description',
+        caption: ''
+      };
+    case 'list':
+      return {
+        items: ['Item 1', 'Item 2', 'Item 3']
+      };
+    case 'code':
+      return {
+        code: '// Enter your code here',
+        language: 'javascript'
+      };
+    default:
+      return {};
+  }
+}
+
 export function WebsiteEditorProvider({ children }: { children: ReactNode }) {
   const [editorState, setEditorState] = useState<EditorState>({
     selectedBlockId: null,
@@ -74,7 +112,7 @@ export function WebsiteEditorProvider({ children }: { children: ReactNode }) {
       id: `temp-${Date.now()}`,
       page_id: '',
       block_type: blockType,
-      content: getDefaultContent(blockType),
+      content: getDefaultContentForBlockType(blockType),
       styles: {},
       visibility: { desktop: true, tablet: true, mobile: true },
       order_index: position ?? blocks.length,
