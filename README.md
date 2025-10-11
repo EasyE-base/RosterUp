@@ -48,8 +48,8 @@ A modern, full-stack web application for managing youth sports teams, tournament
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd "project 2"
+git clone https://github.com/EasyE-base/RosterUPnew.git
+cd RosterUPnew
 ```
 
 2. Install dependencies:
@@ -57,15 +57,33 @@ cd "project 2"
 npm install
 ```
 
-3. Set up environment variables:
+3. **Set up Supabase** (Required):
+
+   a. Create a new Supabase project:
+   - Go to https://supabase.com/dashboard
+   - Click "New Project"
+   - Name it "RosterUp" and set a strong database password
+   - Wait ~2 minutes for provisioning
+
+   b. Get your credentials:
+   - Go to Project Settings → API
+   - Copy the **Project URL** and **anon public** key
+
+   c. Set up the database:
+   - Go to the SQL Editor in your Supabase dashboard
+   - Open `supabase/setup_database.sql` from this repo
+   - Copy and paste the entire contents
+   - Click "Run" to create all tables and policies
+
+4. Configure environment variables:
 ```bash
 cp .env.example .env
 ```
 
-4. Configure your `.env` file with your Supabase credentials:
+Edit `.env` with your Supabase credentials:
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ```
 
 5. Start the development server:
