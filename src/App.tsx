@@ -4,6 +4,8 @@ import Footer from './components/layout/Footer';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import OnboardingCheck from './components/OnboardingCheck';
+import ConfigError from './components/ConfigError';
+import { appConfig } from './config/app.config';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
@@ -29,6 +31,13 @@ import WebsiteBuilder from './pages/WebsiteBuilder';
 import WebsiteBuilderEditor from './pages/WebsiteBuilderEditor';
 
 function App() {
+  // Check if Supabase is configured
+  const isConfigured = appConfig.supabase.url && appConfig.supabase.anonKey;
+
+  if (!isConfigured) {
+    return <ConfigError message="Supabase credentials are not configured. Please set up your environment variables." />;
+  }
+
   return (
     <Router>
       <Routes>

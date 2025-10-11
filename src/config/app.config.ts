@@ -33,10 +33,16 @@ const missingEnvVars = requiredEnvVars.filter(
 );
 
 if (missingEnvVars.length > 0) {
-  throw new Error(
-    `Missing required environment variables: ${missingEnvVars.join(', ')}. ` +
-    'Please check your .env file and ensure all required variables are set.'
-  );
+  // In production, log the error but don't crash the entire app
+  const errorMessage = `Missing required environment variables: ${missingEnvVars.join(', ')}. ` +
+    'Please configure these in your deployment settings.';
+
+  console.error(errorMessage);
+
+  // Only throw in development to help developers catch the issue
+  if (import.meta.env.DEV) {
+    throw new Error(errorMessage);
+  }
 }
 
 // Application configuration object
@@ -48,8 +54,8 @@ export const appConfig: AppConfig = {
     environment: (import.meta.env.MODE as 'development' | 'staging' | 'production') || 'development',
   },
   supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    url: import.meta.env.VITE_SUPABASE_URL || '',
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
   },
   features: {
     enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
