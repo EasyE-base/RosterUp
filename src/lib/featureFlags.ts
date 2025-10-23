@@ -1,0 +1,69 @@
+/**
+ * Feature Flags
+ * Manages feature availability for controlled rollout
+ */
+
+export interface FeatureFlags {
+  canvasMode: boolean;
+  aiGeneration: boolean;
+  analytics: boolean;
+}
+
+/**
+ * Get feature flag status
+ */
+export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
+  switch (feature) {
+    case 'canvasMode':
+      return import.meta.env.VITE_FEATURE_CANVAS_MODE === 'true';
+
+    case 'aiGeneration':
+      // AI generation is enabled if AI provider is configured
+      return !!(
+        import.meta.env.VITE_AI_PROVIDER &&
+        import.meta.env.VITE_AI_PROVIDER !== ''
+      );
+
+    case 'analytics':
+      // Analytics is enabled if endpoint is configured
+      return !!(
+        import.meta.env.VITE_ANALYTICS_ENDPOINT &&
+        import.meta.env.VITE_ANALYTICS_ENDPOINT !== ''
+      );
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Get all feature flag statuses
+ */
+export function getAllFeatureFlags(): FeatureFlags {
+  return {
+    canvasMode: isFeatureEnabled('canvasMode'),
+    aiGeneration: isFeatureEnabled('aiGeneration'),
+    analytics: isFeatureEnabled('analytics'),
+  };
+}
+
+/**
+ * Log feature flag status (development only)
+ */
+export function logFeatureFlags(): void {
+  if (!import.meta.env.DEV) return;
+
+  const flags = getAllFeatureFlags();
+  console.log('🚩 Feature Flags:', {
+    'Canvas Mode': flags.canvasMode ? '✅ Enabled' : '❌ Disabled',
+    'AI Generation': flags.aiGeneration ? '✅ Enabled' : '❌ Disabled',
+    'Analytics': flags.analytics ? '✅ Enabled' : '❌ Disabled',
+  });
+}
+
+/**
+ * Feature flag hook for React components
+ */
+export function useFeatureFlags(): FeatureFlags {
+  return getAllFeatureFlags();
+}

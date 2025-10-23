@@ -239,17 +239,24 @@ class AnalyticsService {
   flush(): void {
     if (this.events.length === 0) return;
 
+    const payload = {
+      events: this.events,
+      metrics: this.getPerformanceSummary(),
+      sessionId: this.sessionId,
+      timestamp: Date.now(),
+    };
+
     // In production, send to analytics endpoint
-    if (!import.meta.env.DEV) {
-      // Example: POST to analytics endpoint
-      // fetch('/api/analytics', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     events: this.events,
-      //     metrics: this.getPerformanceSummary(),
-      //   }),
-      // }).catch(console.error);
+    const analyticsEndpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT;
+    if (!import.meta.env.DEV && analyticsEndpoint) {
+      fetch(analyticsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        // Don't await - fire and forget
+      }).catch((error) => {
+        console.error('Analytics flush failed:', error);
+      });
     }
 
     // Log summary in development

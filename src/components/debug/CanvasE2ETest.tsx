@@ -395,6 +395,29 @@ export function CanvasE2ETest() {
   };
 
   /**
+   * Export test results as JSON file
+   */
+  const exportTestResults = () => {
+    const savedReport = localStorage.getItem('canvas-e2e-latest');
+    if (!savedReport) {
+      alert('No test results found. Run tests first.');
+      return;
+    }
+
+    const blob = new Blob([savedReport], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `canvas-e2e-report-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('📥 Test report exported as JSON file');
+  };
+
+  /**
    * Run all tests
    */
   const runAllTests = async () => {
@@ -437,6 +460,39 @@ export function CanvasE2ETest() {
     } else {
       console.warn('⚠️ Some tests failed. Review metrics before V1.0 release.');
     }
+
+    // Save test results as JSON for reproducibility
+    const testReport = {
+      timestamp: new Date().toISOString(),
+      sessionId: `e2e-${Date.now()}`,
+      summary: {
+        total,
+        passed,
+        failed: total - passed,
+        passRate: `${((passed / total) * 100).toFixed(1)}%`,
+      },
+      tests: [test1, test2, test3, test4],
+      environment: {
+        userAgent: navigator.userAgent,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        memory: performance.memory
+          ? {
+              usedJSHeapSize: performance.memory.usedJSHeapSize,
+              totalJSHeapSize: performance.memory.totalJSHeapSize,
+              jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+            }
+          : null,
+      },
+    };
+
+    // Store in localStorage
+    localStorage.setItem('canvas-e2e-latest', JSON.stringify(testReport));
+
+    // Log JSON for copy-paste
+    console.log('\n📋 Test Report JSON (saved to localStorage):\n', JSON.stringify(testReport, null, 2));
   };
 
   if (!isOpen) return null;
@@ -479,24 +535,42 @@ export function CanvasE2ETest() {
       </div>
 
       {/* Run button */}
-      <button
-        onClick={runAllTests}
-        disabled={isRunning}
-        style={{
-          width: '100%',
-          padding: '12px 24px',
-          backgroundColor: isRunning ? '#d1d5db' : '#3b82f6',
-          color: 'white',
-          border: 'none',
-          borderRadius: 8,
-          cursor: isRunning ? 'not-allowed' : 'pointer',
-          fontSize: 16,
-          fontWeight: 600,
-          marginBottom: 20,
-        }}
-      >
-        {isRunning ? '⏳ Running Tests...' : '▶️ Run All Tests'}
-      </button>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <button
+          onClick={runAllTests}
+          disabled={isRunning}
+          style={{
+            flex: 1,
+            padding: '12px 24px',
+            backgroundColor: isRunning ? '#d1d5db' : '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            cursor: isRunning ? 'not-allowed' : 'pointer',
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+        >
+          {isRunning ? '⏳ Running Tests...' : '▶️ Run All Tests'}
+        </button>
+
+        <button
+          onClick={exportTestResults}
+          disabled={results.length === 0}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: results.length === 0 ? '#d1d5db' : '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            cursor: results.length === 0 ? 'not-allowed' : 'pointer',
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+        >
+          📥 Export JSON
+        </button>
+      </div>
 
       {/* Results */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
