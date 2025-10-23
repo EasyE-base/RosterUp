@@ -19,15 +19,18 @@ export function SnapshotDebugTool() {
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.shiftKey && e.key === 'D') {
+      // Handle both 'D' and 'd' for cross-browser compatibility
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
         e.preventDefault();
+        e.stopPropagation();
+        console.log('📸 Opening Snapshot Debug Tool...');
         captureSnapshot();
         setIsOpen(true);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
 
   /**

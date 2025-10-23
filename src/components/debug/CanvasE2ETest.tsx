@@ -26,26 +26,40 @@ interface TestResult {
   metrics?: Record<string, any>;
 }
 
-export function CanvasE2ETest() {
-  const [isOpen, setIsOpen] = useState(false);
+interface CanvasE2ETestProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function CanvasE2ETest({ isOpen: externalIsOpen, onClose: externalOnClose }: CanvasE2ETestProps = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const commandBus = useCommandBus();
 
+  // Use external isOpen if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnClose ? externalOnClose : () => setInternalIsOpen(false);
+
   /**
-   * Listen for Cmd+Shift+T to open test panel
+   * Listen for Cmd+Shift+T to open test panel (only when not externally controlled)
    */
   React.useEffect(() => {
+    if (externalIsOpen !== undefined) return; // Skip if externally controlled
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'T') {
+      // Handle both 'T' and 't' for cross-browser compatibility
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        e.stopPropagation();
+        console.log('🧪 Opening E2E Test Panel...');
+        setInternalIsOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [externalIsOpen]);
 
   /**
    * Update test result
@@ -358,8 +372,9 @@ export function CanvasE2ETest() {
       }
 
       // Force garbage collection (if available)
-      if (global.gc) {
-        global.gc();
+      // @ts-ignore - gc is only available with --expose-gc flag
+      if (typeof window !== 'undefined' && (window as any).gc) {
+        (window as any).gc();
       }
 
       const finalMemory = performance.memory?.usedJSHeapSize || 0;

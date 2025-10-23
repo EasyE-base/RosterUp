@@ -27,6 +27,8 @@ import SmartEditMode from '../components/website-builder/SmartEditMode';
 import DesignSystemPanel from '../components/website-builder/DesignSystemPanel';
 import KeyboardShortcutsModal from '../components/website-builder/KeyboardShortcutsModal';
 import MobileBlocker from '../components/website-builder/MobileBlocker';
+import { CanvasMode } from '../components/canvas/CanvasMode';
+import { isFeatureEnabled } from '../lib/featureFlags';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useScreenSize } from '../hooks/useScreenSize';
 
@@ -360,6 +362,14 @@ function WebsiteBuilderEditorContent() {
   // Block mobile devices
   if (isMobile) {
     return <MobileBlocker />;
+  }
+
+  // Check if Canvas Mode is enabled via feature flag
+  const canvasModeEnabled = isFeatureEnabled('canvasMode');
+
+  // If Canvas Mode is enabled, render it instead of the legacy editor
+  if (canvasModeEnabled) {
+    return <CanvasMode />;
   }
 
   return (

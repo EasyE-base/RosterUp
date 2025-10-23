@@ -18,13 +18,16 @@ import { getCurrentBreakpoint, TYPICAL_WIDTHS, normalizeTransformBetweenBreakpoi
 import type { Point, CanvasElement, Transform } from '@/lib/types';
 
 interface CanvasModeProps {
-  iframeRef: React.RefObject<HTMLIFrameElement>;
-  htmlContent: string;
-  enabled: boolean;
+  iframeRef?: React.RefObject<HTMLIFrameElement>;
+  htmlContent?: string;
+  enabled?: boolean;
 }
 
-export function CanvasMode({ iframeRef, htmlContent, enabled }: CanvasModeProps) {
+export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', enabled = true }: CanvasModeProps = {}) {
   const commandBus = useCommandBus();
+  const internalIframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = externalIframeRef || internalIframeRef;
+
   const [selectedElement, setSelectedElement] = useState<CanvasElement | null>(null);
   const [hoveredElement, setHoveredElement] = useState<CanvasElement | null>(null);
   const [quickAddPosition, setQuickAddPosition] = useState<Point | null>(null);
@@ -32,6 +35,7 @@ export function CanvasMode({ iframeRef, htmlContent, enabled }: CanvasModeProps)
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<Breakpoint>('desktop');
   const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 });
+  const [showE2EPanel, setShowE2EPanel] = useState(false);
 
   /**
    * Load command history from IndexedDB on mount
@@ -548,7 +552,45 @@ export function CanvasMode({ iframeRef, htmlContent, enabled }: CanvasModeProps)
       {process.env.NODE_ENV === 'development' && <SnapshotDebugTool />}
 
       {/* E2E Test Suite (Cmd+Shift+T) */}
-      {process.env.NODE_ENV === 'development' && <CanvasE2ETest />}
+      {process.env.NODE_ENV === 'development' && (
+        <CanvasE2ETest
+          isOpen={showE2EPanel}
+          onClose={() => setShowE2EPanel(false)}
+        />
+      )}
+
+      {/* Floating Test Button */}
+      {process.env.NODE_ENV === 'development' && (
+        <button
+          onClick={() => setShowE2EPanel(true)}
+          style={{
+            position: 'fixed',
+            top: 120,
+            right: 20,
+            padding: '12px 20px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+            zIndex: 9999,
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+          }}
+        >
+          🧪 Run E2E Tests
+        </button>
+      )}
 
       {/* Debug info */}
       {process.env.NODE_ENV === 'development' && (
