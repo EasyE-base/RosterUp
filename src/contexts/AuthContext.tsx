@@ -106,10 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: userData.full_name,
+            user_type: userData.user_type,
+          },
+        },
       });
 
       if (signUpError) throw signUpError;
 
+      // Manually insert profile (RLS policy allows public insert during signup)
       if (data.user) {
         const { error: profileError } = await supabase.from('profiles').insert({
           id: data.user.id,
@@ -118,11 +125,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user_type: userData.user_type,
         });
 
-        if (profileError) throw profileError;
-
-        showToast.success('Account created successfully! Please check your email to verify your account.');
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
       }
 
+      showToast.success('Account created successfully! Please check your email to verify your account.');
       return { error: null };
     } catch (error) {
       const errorMessage = handleError(error, 'Failed to create account');

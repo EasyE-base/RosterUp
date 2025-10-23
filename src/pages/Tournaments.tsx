@@ -68,7 +68,7 @@ export default function Tournaments() {
       setLoading(true);
       let query = supabase
         .from('tournaments')
-        .select('*, organizations(name, city, state, latitude, longitude)')
+        .select('*, organizations(name, city, state)')
         .eq('status', 'open')
         .gte('start_date', new Date().toISOString().split('T')[0])
         .order('start_date', { ascending: true });
@@ -76,7 +76,7 @@ export default function Tournaments() {
       if (activeTab === 'manage' && organization) {
         query = supabase
           .from('tournaments')
-          .select('*, organizations(name, city, state, latitude, longitude)')
+          .select('*, organizations(name, city, state)')
           .eq('organization_id', organization.id)
           .order('start_date', { ascending: false });
       }

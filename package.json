@@ -1,7 +1,7 @@
 {
   "name": "vite-react-typescript-starter",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0-canvas",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,15 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.57.4",
+    "css-tree": "^3.1.0",
+    "heic2any": "^0.0.4",
+    "hotkeys-js": "^3.13.15",
+    "idb": "^8.0.3",
+    "immer": "^10.1.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
@@ -23,6 +31,7 @@
     "react-hot-toast": "^2.6.0",
     "react-leaflet": "^4.2.1",
     "react-leaflet-cluster": "^3.1.1",
+    "react-resizable-panels": "^3.0.6",
     "react-router-dom": "^7.9.4"
   },
   "devDependencies": {

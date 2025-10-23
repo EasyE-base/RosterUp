@@ -26,6 +26,20 @@ export default function OrganizationOnboarding() {
     setLoading(true);
 
     try {
+      // Check if organization already exists
+      const { data: existingOrg } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      if (existingOrg) {
+        // Organization already exists, just navigate to dashboard
+        navigate('/dashboard');
+        return;
+      }
+
+      // Create new organization
       const { error: insertError } = await supabase.from('organizations').insert({
         user_id: user?.id,
         name: formData.name,

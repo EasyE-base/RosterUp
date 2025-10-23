@@ -168,6 +168,11 @@ export interface OrganizationWebsite {
   header_code: string | null;
   footer_code: string | null;
   google_analytics_id: string | null;
+  website_mode?: 'blocks' | 'clone';
+  clone_html?: string | null;
+  clone_css?: string | null;
+  clone_js?: string | null;
+  clone_assets?: any;
   created_at: string;
   updated_at: string;
 }
@@ -188,9 +193,31 @@ export interface WebsitePage {
   updated_at: string;
 }
 
+export interface WebsiteSection {
+  id: string;
+  page_id: string;
+  name: string;
+  section_type: 'header' | 'content' | 'footer';
+  background_color?: string;
+  background_image?: string;
+  background_size?: string;
+  background_position?: string;
+  padding_top?: string;
+  padding_bottom?: string;
+  padding_left?: string;
+  padding_right?: string;
+  max_width?: string;
+  full_width: boolean;
+  order_index: number;
+  styles: any;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WebsiteContentBlock {
   id: string;
   page_id: string;
+  section_id?: string;
   block_type: string;
   content: any;
   styles: any;
@@ -332,6 +359,18 @@ export interface WebsiteComment {
   comment: string;
   status: string;
   created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebsiteDesignSystem {
+  id: string;
+  website_id: string;
+  colors: any;
+  typography: any;
+  spacing: any;
+  buttons: any;
+  effects: any;
   created_at: string;
   updated_at: string;
 }

@@ -75,16 +75,19 @@ export default function Dashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', organization?.id);
 
+      // Get tournament IDs first
+      const { data: tournamentIds } = await supabase
+        .from('tournaments')
+        .select('id')
+        .eq('organization_id', organization?.id);
+
+      const tournamentIdArray = tournamentIds?.map(t => t.id) || [];
+
       const { count: applicationsCount } = await supabase
         .from('tournament_applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
-        .in('tournament_id',
-          supabase
-            .from('tournaments')
-            .select('id')
-            .eq('organization_id', organization?.id)
-        );
+        .in('tournament_id', tournamentIdArray);
 
       const { count: upcomingTournamentsCount } = await supabase
         .from('tournaments')

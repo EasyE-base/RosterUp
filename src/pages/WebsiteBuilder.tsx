@@ -17,20 +17,29 @@ import {
   ExternalLink,
   Palette,
   Code,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, OrganizationWebsite, WebsitePage } from '../lib/supabase';
+import { useScreenSize } from '../hooks/useScreenSize';
+import MobileBlocker from '../components/website-builder/MobileBlocker';
+import WebsiteImporter from '../components/website-builder/WebsiteImporter';
 
 export default function WebsiteBuilder() {
   const { organization } = useAuth();
   const navigate = useNavigate();
+  const { isMobile } = useScreenSize();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [website, setWebsite] = useState<OrganizationWebsite | null>(null);
   const [pages, setPages] = useState<WebsitePage[]>([]);
   const [showCreateWebsite, setShowCreateWebsite] = useState(false);
+  const [showCreatePage, setShowCreatePage] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
   const [subdomain, setSubdomain] = useState('');
   const [error, setError] = useState('');
+  const [newPageTitle, setNewPageTitle] = useState('');
+  const [newPageSlug, setNewPageSlug] = useState('');
 
   useEffect(() => {
     if (organization) {
@@ -127,11 +136,6 @@ export default function WebsiteBuilder() {
 
       if (pageError) throw pageError;
 
-      await supabase
-        .from('organizations')
-        .update({ website_enabled: true, website_subdomain: cleanSubdomain })
-        .eq('id', organization.id);
-
       setWebsite(websiteData as OrganizationWebsite);
       setShowCreateWebsite(false);
       await loadPages(websiteData.id);
@@ -163,6 +167,47 @@ export default function WebsiteBuilder() {
     }
   };
 
+  const createPage = async () => {
+    if (!website || !newPageTitle) return;
+
+    try {
+      setSaving(true);
+      setError('');
+
+      const slug = newPageSlug || newPageTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+      const { data: newPage, error: pageError } = await supabase
+        .from('website_pages')
+        .insert({
+          website_id: website.id,
+          title: newPageTitle,
+          slug: slug,
+          is_home: false,
+          is_published: false,
+          order_index: pages.length,
+        })
+        .select()
+        .single();
+
+      if (pageError) throw pageError;
+
+      await loadPages(website.id);
+      setShowCreatePage(false);
+      setNewPageTitle('');
+      setNewPageSlug('');
+
+      // Navigate to the new page editor
+      if (newPage) {
+        navigate(`/website-builder/page/${newPage.id}`);
+      }
+    } catch (error) {
+      console.error('Error creating page:', error);
+      setError('Failed to create page. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const blockTypes = [
     { type: 'hero', icon: Layout, label: 'Hero Section', description: 'Large banner with title and CTA' },
     { type: 'text', icon: Type, label: 'Text Block', description: 'Rich text content' },
@@ -181,93 +226,140 @@ export default function WebsiteBuilder() {
     );
   }
 
+  // Block mobile devices
+  if (isMobile) {
+    return <MobileBlocker />;
+  }
+
   if (showCreateWebsite) {
     return (
-      <div className="min-h-screen bg-slate-950 pt-20 pb-12">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-8">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Globe className="w-8 h-8 text-white" />
+      <>
+        <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-8">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Globe className="w-8 h-8 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold text-white mb-2">Create Your Website</h1>
+                <p className="text-slate-400">
+                  Build a professional website for your organization
+                </p>
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Create Your Website</h1>
-              <p className="text-slate-400">
-                Build a professional website for your organization
-              </p>
-            </div>
 
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Choose Your Subdomain
-                </label>
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={subdomain}
-                    onChange={(e) => setSubdomain(e.target.value)}
-                    placeholder="your-organization"
-                    className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-l-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  <div className="px-4 py-3 bg-slate-800 border border-slate-700 border-l-0 rounded-r-lg text-slate-400">
-                    .rosterup.com
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Choose Your Subdomain
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      value={subdomain}
+                      onChange={(e) => setSubdomain(e.target.value)}
+                      placeholder="your-organization"
+                      className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-l-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <div className="px-4 py-3 bg-slate-800 border border-slate-700 border-l-0 rounded-r-lg text-slate-400">
+                      .rosterup.com
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-2">
+                    This will be your public website URL
+                  </p>
+                  {error && (
+                    <p className="text-sm text-red-400 mt-2">{error}</p>
+                  )}
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <h3 className="text-white font-semibold mb-2">What's included:</h3>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    <li className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <span>Drag-and-drop page builder</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <span>Multiple page templates</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <span>Auto-sync team rosters and schedules</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <span>Custom branding and colors</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <span>Mobile-responsive design</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={createWebsite}
+                  disabled={!subdomain || saving}
+                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      <span>Create Website</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-slate-900 text-slate-400">or</span>
                   </div>
                 </div>
-                <p className="text-sm text-slate-500 mt-2">
-                  This will be your public website URL
-                </p>
-                {error && (
-                  <p className="text-sm text-red-400 mt-2">{error}</p>
-                )}
-              </div>
 
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <h3 className="text-white font-semibold mb-2">What's included:</h3>
-                <ul className="space-y-2 text-sm text-slate-300">
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                    <span>Drag-and-drop page builder</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                    <span>Multiple page templates</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                    <span>Auto-sync team rosters and schedules</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                    <span>Custom branding and colors</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                    <span>Mobile-responsive design</span>
-                  </li>
-                </ul>
+                <button
+                  onClick={() => {
+                    console.log('Import button clicked! subdomain:', subdomain);
+                    if (!subdomain) {
+                      console.log('No subdomain, showing error');
+                      setError('Please enter a subdomain first');
+                      return;
+                    }
+                    console.log('Setting showImporter to true');
+                    setShowImporter(true);
+                  }}
+                  className="w-full py-3 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg hover:bg-slate-700 hover:border-blue-500/50 transition-all flex items-center justify-center space-x-2"
+                >
+                  <Globe className="w-5 h-5" />
+                  <span>Import Existing Website</span>
+                </button>
               </div>
-
-              <button
-                onClick={createWebsite}
-                disabled={!subdomain || saving}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Creating...</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5" />
-                    <span>Create Website</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Website Importer Modal */}
+        {showImporter && organization && (
+          <WebsiteImporter
+            isOpen={showImporter}
+            onClose={() => setShowImporter(false)}
+            onComplete={(websiteId) => {
+              setShowImporter(false);
+              navigate(`/website-builder`);
+            }}
+            organizationId={organization.id}
+            subdomain={subdomain}
+          />
+        )}
+      </>
     );
   }
 
@@ -324,7 +416,10 @@ export default function WebsiteBuilder() {
             <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-white">Pages</h2>
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2">
+                <button
+                  onClick={() => setShowCreatePage(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
+                >
                   <Plus className="w-4 h-4" />
                   <span>Add Page</span>
                 </button>
@@ -407,6 +502,16 @@ export default function WebsiteBuilder() {
                 <h2 className="text-xl font-bold text-white">Website Settings</h2>
               </div>
               <div className="space-y-4">
+                <button
+                  onClick={() => setShowImporter(true)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-left flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Globe className="w-5 h-5" />
+                    <span className="font-medium">Import Website</span>
+                  </div>
+                  <span>→</span>
+                </button>
                 <button className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all text-left flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Palette className="w-5 h-5 text-slate-400" />
@@ -443,6 +548,108 @@ export default function WebsiteBuilder() {
           </div>
         </div>
       </div>
+
+      {/* Create Page Modal */}
+      {showCreatePage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">Create New Page</h2>
+              <button
+                onClick={() => {
+                  setShowCreatePage(false);
+                  setNewPageTitle('');
+                  setNewPageSlug('');
+                  setError('');
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Page Title
+                </label>
+                <input
+                  type="text"
+                  value={newPageTitle}
+                  onChange={(e) => setNewPageTitle(e.target.value)}
+                  placeholder="About Us"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  URL Slug (optional)
+                </label>
+                <input
+                  type="text"
+                  value={newPageSlug}
+                  onChange={(e) => setNewPageSlug(e.target.value)}
+                  placeholder="about-us"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Leave blank to auto-generate from title
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowCreatePage(false);
+                    setNewPageTitle('');
+                    setNewPageSlug('');
+                    setError('');
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createPage}
+                  disabled={!newPageTitle || saving}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <span>Create Page</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Website Importer Modal */}
+      {showImporter && organization && website && (
+        <WebsiteImporter
+          isOpen={showImporter}
+          onClose={() => setShowImporter(false)}
+          onComplete={(websiteId) => {
+            setShowImporter(false);
+            loadWebsite();
+          }}
+          organizationId={organization.id}
+          subdomain={website.subdomain}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Clone Function</title>
+</head>
+<body>
+    <h1>Test Clone</h1>
+    <button onclick="testClone()">Test Clone Function</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testClone() {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Testing...';
+
+            try {
+                const SUPABASE_URL = 'https://hnaqmskjbsrltdcvinai.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuYXFtc2tqYnNybHRkY3ZpbmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODQyODQsImV4cCI6MjA0NDE2MDI4NH0.vQd3jf0VrPE1lBwLa12jrJVBGJwMFTSl1CgyfbQ0qj0';
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/clone-website`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                        urls: ['https://example.com'],
+                        organizationId: 'test-org-123',
+                        subdomain: 'test-subdomain',
+                    }),
+                });
+
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify({
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, null, 2);
+
+            } catch (error) {
+                resultEl.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
