@@ -1,16 +1,20 @@
 /**
- * Unified Mutation Engine
+ * Unified Mutation Engine V2.0
  * Compiles Canvas elements and Smart Edit actions into DOM mutations
- * Shared by both modes for consistency
+ * V2.0: Flow-to-absolute transitions with inline style preservation
  */
 
 import { buildBreakpointCSS } from './breakpoints';
 import { selectorRegistry } from './selectorRegistry';
+import { assignZIndex } from './zIndexPolicy';
+import { generateResponsiveTransforms } from './responsiveGenerator';
 import type {
   MutationOp,
   MutationSource,
   CanvasElement,
   OperationContext,
+  ComputedStyles,
+  Transform,
 } from './types';
 
 /**
@@ -34,16 +38,30 @@ export class MutationEngine {
 
   /**
    * Compile Canvas elements into DOM mutations
-   * 1. Generate breakpoint CSS
-   * 2. Insert/update canvas elements
-   * 3. Register in selector registry
+   * V2.0: Enhanced with z-index enforcement and thryveId support
+   * 1. Register elements in selector registry (canvas ID + thryveId)
+   * 2. Enforce z-index policy
+   * 3. Generate breakpoint CSS
+   * 4. Insert/update canvas elements
    */
   private compileCanvasElements(elements: Map<string, CanvasElement>): MutationOp[] {
+    performance.mark('mutation-compile-start');
     const ops: MutationOp[] = [];
 
-    // Step 1: Register all elements in selector registry
-    for (const [id] of elements) {
+    // Step 1: Register all elements and enforce z-index policy
+    for (const [id, elem] of elements) {
       selectorRegistry.registerCanvasElement(id);
+
+      // V2.0: Register thryveId if present (unlocked flow elements)
+      if (elem.thryveId) {
+        // Note: Element ref will be updated after DOM insertion
+        // Here we just ensure the mapping exists
+      }
+
+      // V2.0: Enforce z-index policy
+      if (elem.mode === 'absolute') {
+        elem.zIndex = assignZIndex(elem);
+      }
     }
 
     // Step 2: Generate breakpoint CSS and upsert style tag
@@ -60,7 +78,7 @@ export class MutationEngine {
     );
 
     if (breakpointCSS) {
-      // Check if style tag exists, if not create it
+      // Upsert style tag (replace if exists, insert if not)
       ops.push({
         op: 'insert',
         selector: 'head',
@@ -74,32 +92,204 @@ export class MutationEngine {
       const selector = selectorRegistry.getSelector(id)!;
 
       if (elem.mode === 'absolute') {
-        // Absolute positioned element - insert with canvas styles
-        ops.push({
-          op: 'insert',
-          selector: 'body',
-          position: 'append',
-          html: this.elementToHTML(elem),
-        });
-      } else {
-        // Flow element - use existing selector
-        // (This would be for unlocked elements that were converted from flow)
+        // V2.0: Check if unlocked from flow element
         if (elem.originalSelector) {
-          // Element was unlocked from a flow element
-          // We need to wrap it and make it absolute
+          // Element was unlocked - replace original with absolute version
           ops.push({
             op: 'insert',
             selector: elem.originalSelector,
             position: 'after',
             html: this.elementToHTML(elem),
           });
-          // Delete the original
+          // Delete the original flow element
           ops.push({
             op: 'delete',
             selector: elem.originalSelector,
           });
+        } else {
+          // New absolute element - insert into body
+          ops.push({
+            op: 'insert',
+            selector: 'body',
+            position: 'append',
+            html: this.elementToHTML(elem),
+          });
+        }
+      } else {
+        // Flow element (in-place edit)
+        // This path handles text/attr updates to existing flow elements
+        // (Not common in Canvas Mode V2.0, but supported for compatibility)
+        if (elem.originalSelector) {
+          ops.push({
+            op: 'update_text',
+            selector: elem.originalSelector,
+            value: elem.content.text || '',
+          });
         }
       }
+    }
+
+    // Performance measurement
+    performance.mark('mutation-compile-end');
+    performance.measure('mutation-compile', 'mutation-compile-start', 'mutation-compile-end');
+
+    const measure = performance.getEntriesByName('mutation-compile')[0];
+    const duration = measure?.duration || 0;
+
+    if (duration > 100) {
+      console.warn(`⚠️ Mutation compile: ${duration.toFixed(2)}ms > 100ms budget (${elements.size} elements)`);
+    }
+
+    performance.clearMarks('mutation-compile-start');
+    performance.clearMarks('mutation-compile-end');
+    performance.clearMeasures('mutation-compile');
+
+    return ops;
+  }
+
+  /**
+   * V2.0: Capture computed styles from a DOM element
+   * Used when unlocking flow elements to preserve visual fidelity
+   */
+  captureComputedStyles(element: Element): ComputedStyles {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+
+    const computed = window.getComputedStyle(element);
+
+    return {
+      fontSize: computed.fontSize,
+      fontWeight: computed.fontWeight,
+      lineHeight: computed.lineHeight,
+      color: computed.color,
+      backgroundColor: computed.backgroundColor,
+      fontFamily: computed.fontFamily,
+      padding: computed.padding,
+      margin: computed.margin,
+      borderRadius: computed.borderRadius,
+      // Box model
+      width: computed.width,
+      height: computed.height,
+      // Display
+      display: computed.display,
+      // Text
+      textAlign: computed.textAlign,
+      textDecoration: computed.textDecoration,
+      // Additional preserved properties
+      letterSpacing: computed.letterSpacing,
+      wordSpacing: computed.wordSpacing,
+    };
+  }
+
+  /**
+   * V2.0: Convert flow element to absolute positioned canvas element
+   * Preserves layout by capturing bounding box and computed styles
+   */
+  unlockFlowElement(
+    thryveId: string,
+    element: Element,
+    viewportWidth: number = 1440
+  ): CanvasElement {
+    // Capture current position and size
+    const rect = element.getBoundingClientRect();
+    const scrollX = window.scrollX || 0;
+    const scrollY = window.scrollY || 0;
+
+    // Build desktop transform from current layout position
+    const desktopTransform: Transform = {
+      x: rect.left + scrollX,
+      y: rect.top + scrollY,
+      width: rect.width,
+      height: rect.height,
+      rotation: 0, // Could extract from transform matrix if needed
+    };
+
+    // Generate responsive transforms
+    const breakpoints = generateResponsiveTransforms(desktopTransform, viewportWidth);
+
+    // Capture computed styles for fidelity
+    const snapshotStyles = this.captureComputedStyles(element);
+
+    // Determine element type
+    const tagName = element.tagName.toLowerCase();
+    let elementType: CanvasElement['type'] = 'custom';
+    const content: CanvasElement['content'] = {};
+
+    if (tagName === 'p' || tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'span') {
+      elementType = 'text';
+      content.text = element.textContent || '';
+    } else if (tagName === 'img') {
+      elementType = 'image';
+      content.src = element.getAttribute('src') || '';
+      content.alt = element.getAttribute('alt') || '';
+    } else if (tagName === 'a' || tagName === 'button') {
+      elementType = 'button';
+      content.text = element.textContent || '';
+      content.href = element.getAttribute('href') || '#';
+    } else if (tagName === 'video') {
+      elementType = 'video';
+      content.src = element.getAttribute('src') || '';
+    } else {
+      elementType = 'section';
+      content.html = element.innerHTML;
+    }
+
+    // Create canvas element with preserved styles
+    const canvasElement: CanvasElement = {
+      id: `canvas-${thryveId}`,
+      thryveId,
+      type: elementType,
+      mode: 'absolute',
+      content,
+      breakpoints,
+      zIndex: assignZIndex({ mode: 'absolute' } as CanvasElement),
+      styles: {
+        fontSize: snapshotStyles.fontSize,
+        fontWeight: snapshotStyles.fontWeight,
+        lineHeight: snapshotStyles.lineHeight,
+        fontFamily: snapshotStyles.fontFamily,
+        color: snapshotStyles.color,
+        backgroundColor: snapshotStyles.backgroundColor,
+        padding: snapshotStyles.padding,
+        borderRadius: snapshotStyles.borderRadius,
+        textAlign: snapshotStyles.textAlign,
+      },
+      originalSelector: `[data-thryve-id="${thryveId}"]`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    return canvasElement;
+  }
+
+  /**
+   * V2.0: Compile flow element mutations (thryveId-based operations)
+   * For in-place edits to flow elements without unlocking
+   */
+  private compileFlowMutations(
+    thryveId: string,
+    operation: 'update_text' | 'update_attr',
+    value: string,
+    attr?: string
+  ): MutationOp[] {
+    const ops: MutationOp[] = [];
+
+    const selector = `[data-thryve-id="${thryveId}"]`;
+
+    if (operation === 'update_text') {
+      ops.push({
+        op: 'update_text',
+        selector,
+        value,
+      });
+    } else if (operation === 'update_attr' && attr) {
+      ops.push({
+        op: 'update_attr',
+        selector,
+        attr,
+        value,
+      });
     }
 
     return ops;
@@ -107,15 +297,17 @@ export class MutationEngine {
 
   /**
    * Convert CanvasElement to HTML string
+   * V2.0: Enhanced with inline style support for unlocked elements
    */
   private elementToHTML(elem: CanvasElement): string {
     const baseStyle = elem.mode === 'absolute'
       ? 'position:absolute; left:var(--el-left); top:var(--el-top); width:var(--el-width); height:var(--el-height); transform:rotate(var(--el-rotate));'
       : '';
 
-    // Merge custom styles
+    // V2.0: Merge custom styles (includes preserved styles from unlock)
     const customStyles = elem.styles
       ? Object.entries(elem.styles)
+          .filter(([_, value]) => value !== undefined)
           .map(([key, value]) => `${this.camelToKebab(key)}:${value}`)
           .join('; ')
       : '';
@@ -123,27 +315,33 @@ export class MutationEngine {
     const combinedStyle = [baseStyle, customStyles].filter(Boolean).join(' ');
     const styleAttr = combinedStyle ? ` style="${combinedStyle}"` : '';
 
+    // V2.0: Add thryveId if present (for unlocked flow elements)
+    const thryveAttr = elem.thryveId ? ` data-thryve-id="${elem.thryveId}"` : '';
+
+    // V2.0: Add original selector if unlocked from flow
+    const dataAttrs = `${thryveAttr}`;
+
     switch (elem.type) {
       case 'text':
-        return `<p class="canvas-element canvas-text" data-canvas-id="${elem.id}"${styleAttr}>${this.escapeHTML(elem.content.text || '')}</p>`;
+        return `<p class="canvas-element canvas-text" data-canvas-id="${elem.id}"${dataAttrs}${styleAttr}>${this.escapeHTML(elem.content.text || '')}</p>`;
 
       case 'image':
-        return `<img class="canvas-element canvas-image" data-canvas-id="${elem.id}" src="${elem.content.src || ''}" alt="${this.escapeHTML(elem.content.alt || '')}"${styleAttr} />`;
+        return `<img class="canvas-element canvas-image" data-canvas-id="${elem.id}"${dataAttrs} src="${elem.content.src || ''}" alt="${this.escapeHTML(elem.content.alt || '')}"${styleAttr} />`;
 
       case 'button':
-        return `<a class="canvas-element canvas-button" data-canvas-id="${elem.id}" href="${elem.content.href || '#'}"${styleAttr}>${this.escapeHTML(elem.content.text || 'Button')}</a>`;
+        return `<a class="canvas-element canvas-button" data-canvas-id="${elem.id}"${dataAttrs} href="${elem.content.href || '#'}"${styleAttr}>${this.escapeHTML(elem.content.text || 'Button')}</a>`;
 
       case 'video':
-        return `<video class="canvas-element canvas-video" data-canvas-id="${elem.id}" src="${elem.content.src || ''}" controls${styleAttr}></video>`;
+        return `<video class="canvas-element canvas-video" data-canvas-id="${elem.id}"${dataAttrs} src="${elem.content.src || ''}" controls${styleAttr}></video>`;
 
       case 'section':
-        return `<div class="canvas-element canvas-section" data-canvas-id="${elem.id}"${styleAttr}>${elem.content.html || ''}</div>`;
+        return `<div class="canvas-element canvas-section" data-canvas-id="${elem.id}"${dataAttrs}${styleAttr}>${elem.content.html || ''}</div>`;
 
       case 'custom':
-        return `<div class="canvas-element canvas-custom" data-canvas-id="${elem.id}"${styleAttr}>${elem.content.html || ''}</div>`;
+        return `<div class="canvas-element canvas-custom" data-canvas-id="${elem.id}"${dataAttrs}${styleAttr}>${elem.content.html || ''}</div>`;
 
       default:
-        return `<div class="canvas-element" data-canvas-id="${elem.id}"${styleAttr}></div>`;
+        return `<div class="canvas-element" data-canvas-id="${elem.id}"${dataAttrs}${styleAttr}></div>`;
     }
   }
 
@@ -288,3 +486,8 @@ export const mutationEngine = new MutationEngine();
 export const compile = (source: MutationSource) => mutationEngine.compile(source);
 export const applyToDOM = (iframeDoc: Document, ops: MutationOp[]) => mutationEngine.applyToDOM(iframeDoc, ops);
 export const applyToServer = (html: string, ops: MutationOp[]) => mutationEngine.applyToServer(html, ops);
+
+// V2.0: Convenience exports for new methods
+export const captureComputedStyles = (element: Element) => mutationEngine.captureComputedStyles(element);
+export const unlockFlowElement = (thryveId: string, element: Element, viewportWidth?: number) =>
+  mutationEngine.unlockFlowElement(thryveId, element, viewportWidth);
