@@ -367,9 +367,9 @@ function WebsiteBuilderEditorContent() {
   // Check if Canvas Mode is enabled via feature flag
   const canvasModeEnabled = isFeatureEnabled('canvasMode');
 
-  // If Canvas Mode is enabled, render it instead of the legacy editor
+  // V2.0: If Canvas Mode is enabled, render it with pageId for hybrid loading
   if (canvasModeEnabled) {
-    return <CanvasMode />;
+    return <CanvasMode pageId={pageId} />;
   }
 
   return (
