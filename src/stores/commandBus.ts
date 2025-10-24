@@ -11,6 +11,7 @@ import type {
   Transform,
   Breakpoint,
 } from '@/lib/types';
+import { createContext } from '@/lib/types';
 import { registry } from '@/lib/selectorRegistry';
 import { mutationEngine } from '@/lib/mutationEngine';
 import { validateMutations, formatValidationWarnings } from '@/lib/validation';
@@ -262,18 +263,42 @@ export const useCommandBus = create<CommandBusState>((set, get) => {
     elements: new Map(),
     isDirty: false,
 
+    // V2.0: Batch state
+    batchDepth: 0,
+    batchBuffer: [],
+
     // Synchronous dispatch (single command)
     dispatch: (command) => {
-      const { history, currentIndex, elements } = get();
+      const { history, currentIndex, elements, batchDepth, batchBuffer } = get();
+
+      // V2.0: Stamp version and context if not present
+      const versionedCommand = {
+        ...command,
+        version: 2,
+        context: command.context || createContext('manual'),
+      } as Command;
+
+      // V2.0: If in batch mode, add to buffer instead of history
+      if (batchDepth > 0) {
+        set({
+          batchBuffer: [...batchBuffer, versionedCommand],
+        });
+        return;
+      }
 
       // Apply command to current state
-      const newElements = applyCommand(elements, command);
+      const newElements = applyCommand(elements, versionedCommand);
 
       // Truncate future history if we're not at the end
-      const newHistory = history.slice(0, currentIndex + 1);
+      let newHistory = history.slice(0, currentIndex + 1);
 
       // Add command as new batch
-      newHistory.push([command]);
+      newHistory.push([versionedCommand]);
+
+      // V2.0: Prune history if exceeds MAX_HISTORY
+      if (newHistory.length > MAX_HISTORY) {
+        newHistory = newHistory.slice(newHistory.length - MAX_HISTORY);
+      }
 
       set({
         elements: newElements,
@@ -299,18 +324,30 @@ export const useCommandBus = create<CommandBusState>((set, get) => {
       // Execute async builder (may call AI, fetch data, etc.)
       await builder(queue);
 
+      // V2.0: Stamp version and context on all commands
+      const versionedBatch = commandBatch.map(cmd => ({
+        ...cmd,
+        version: 2,
+        context: cmd.context || createContext('ai'),
+      })) as Command[];
+
       // Apply entire batch as ONE atomic operation
       const { history, currentIndex, elements } = get();
       let newElements = new Map(elements);
 
       // Apply all commands in sequence
-      for (const cmd of commandBatch) {
+      for (const cmd of versionedBatch) {
         newElements = applyCommand(newElements, cmd);
       }
 
       // Add batch to history (entire sequence is one undo unit)
-      const newHistory = history.slice(0, currentIndex + 1);
-      newHistory.push(commandBatch);
+      let newHistory = history.slice(0, currentIndex + 1);
+      newHistory.push(versionedBatch);
+
+      // V2.0: Prune history if exceeds MAX_HISTORY
+      if (newHistory.length > MAX_HISTORY) {
+        newHistory = newHistory.slice(newHistory.length - MAX_HISTORY);
+      }
 
       set({
         elements: newElements,
@@ -477,6 +514,94 @@ export const useCommandBus = create<CommandBusState>((set, get) => {
       } catch (error) {
         console.error('❌ Failed to save to IndexedDB:', error);
       }
+    },
+
+    // V2.0: Begin batch operation
+    beginBatch: () => {
+      const { batchDepth } = get();
+      set({ batchDepth: batchDepth + 1 });
+    },
+
+    // V2.0: End batch operation
+    endBatch: () => {
+      const { batchDepth, batchBuffer, history, currentIndex, elements } = get();
+
+      if (batchDepth <= 0) {
+        console.warn('⚠️ endBatch called without matching beginBatch');
+        return;
+      }
+
+      const newDepth = batchDepth - 1;
+
+      // If depth reaches 0, commit buffer to history
+      if (newDepth === 0 && batchBuffer.length > 0) {
+        // Apply all buffered commands
+        let newElements = new Map(elements);
+        for (const cmd of batchBuffer) {
+          newElements = applyCommand(newElements, cmd);
+        }
+
+        // Add batch to history
+        const newHistory = history.slice(0, currentIndex + 1);
+        newHistory.push(batchBuffer);
+
+        // Prune history if exceeds MAX_HISTORY
+        const prunedHistory = newHistory.length > MAX_HISTORY
+          ? newHistory.slice(newHistory.length - MAX_HISTORY)
+          : newHistory;
+
+        set({
+          elements: newElements,
+          history: prunedHistory,
+          currentIndex: prunedHistory.length - 1,
+          isDirty: true,
+          batchDepth: 0,
+          batchBuffer: [],
+        });
+
+        // Auto-save to IndexedDB
+        debouncedSave(get());
+      } else {
+        // Still nested, just decrement depth
+        set({ batchDepth: newDepth });
+      }
+    },
+
+    // V2.0: Rehydrate from persisted commands
+    rehydrate: (commands) => {
+      // Migrate V1 commands to V2 if needed
+      const migratedCommands = commands.map(batch =>
+        batch.map(cmd => {
+          // Check if command has version field
+          if ('version' in cmd && cmd.version === 2) {
+            return cmd;
+          }
+
+          // Migrate V1 command to V2
+          console.warn(`⚠️ Migrating V1 command to V2: ${cmd.type}`);
+          return {
+            ...cmd,
+            version: 2,
+            context: {
+              timestamp: Date.now(),
+              source: 'auto' as const,
+              description: 'Migrated from V1',
+            },
+          };
+        })
+      );
+
+      // Replay commands to rebuild state
+      const newElements = replayHistory(migratedCommands, migratedCommands.length - 1);
+
+      set({
+        history: migratedCommands,
+        currentIndex: migratedCommands.length - 1,
+        elements: newElements,
+        isDirty: false,
+      });
+
+      console.log(`✅ Rehydrated ${migratedCommands.length} command batches`);
     },
   };
 });

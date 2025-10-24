@@ -1,19 +1,25 @@
 /**
- * Selector Registry
- * Unified addressing system for Canvas and Smart Edit modes
- * Maps between element IDs, CSS selectors, and DOM references
+ * Selector Registry V2.0
+ * Unified addressing system for Hybrid Canvas Mode
+ * Maps between thryveIds, canvas IDs, CSS selectors, and DOM references
+ * V2.0: Prioritizes data-thryve-id for flow elements
  */
 
 /**
  * Singleton registry that maintains bidirectional mappings between:
- * - Canvas element IDs (data-canvas-id)
- * - CSS selectors
+ * - ThryveIds (data-thryve-id) - V2.0: Primary for flow elements
+ * - Canvas element IDs (data-canvas-id) - For absolute elements
+ * - CSS selectors - Fallback for legacy
  * - DOM element references
  */
 export class SelectorRegistry {
   private idToSelector = new Map<string, string>();
   private selectorToId = new Map<string, string>();
   private elementRefs = new Map<string, Element>();
+
+  // V2.0: ThryveId-first mappings
+  private thryveIdToElement = new Map<string, Element>();
+  private elementToThryveId = new WeakMap<Element, string>();
 
   /**
    * Register a canvas element (newly created with data-canvas-id)
@@ -65,6 +71,57 @@ export class SelectorRegistry {
   }
 
   /**
+   * V2.0: Register flow element with thryveId
+   * ThryveIds are deterministic and persist across reloads
+   */
+  registerThryveElement(thryveId: string, element: Element): void {
+    this.thryveIdToElement.set(thryveId, element);
+    this.elementToThryveId.set(element, thryveId);
+  }
+
+  /**
+   * V2.0: Get element by thryveId (primary resolution path)
+   */
+  getElementByThryveId(thryveId: string): Element | undefined {
+    return this.thryveIdToElement.get(thryveId);
+  }
+
+  /**
+   * V2.0: Get thryveId from element reference
+   */
+  getThryveId(element: Element): string | undefined {
+    return this.elementToThryveId.get(element);
+  }
+
+  /**
+   * V2.0: Update element ref by thryveId (for sync after DOM mutations)
+   */
+  updateElementRefByThryveId(thryveId: string, element: Element): void {
+    this.thryveIdToElement.set(thryveId, element);
+    this.elementToThryveId.set(element, thryveId);
+  }
+
+  /**
+   * V2.0: Resolve element by ID (thryveId OR canvasId)
+   * ThryveId is checked first
+   */
+  resolveElement(id: string): Element | undefined {
+    // Try thryveId first (V2.0 primary path)
+    const thryveElement = this.thryveIdToElement.get(id);
+    if (thryveElement) {
+      return thryveElement;
+    }
+
+    // Fallback to canvas ID via selector
+    const selector = this.idToSelector.get(id);
+    if (selector) {
+      return this.elementRefs.get(selector);
+    }
+
+    return undefined;
+  }
+
+  /**
    * Check if an ID is registered
    */
   hasId(id: string): boolean {
@@ -94,21 +151,35 @@ export class SelectorRegistry {
 
   /**
    * Clear all registrations (on page reload or reset)
+   * V2.0: Also clears thryveId mappings
    */
   clear(): void {
     this.idToSelector.clear();
     this.selectorToId.clear();
     this.elementRefs.clear();
+    this.thryveIdToElement.clear();
+    // WeakMap clears itself when references are gone
   }
 
   /**
-   * Sync with iframe DOM - scan for canvas elements and update registry
+   * V2.0: Sync with iframe DOM - scan for thryveId and canvas elements
    * Call this after iframe loads or HTML updates
+   * Includes performance instrumentation
    */
   syncWithDOM(iframeDoc: Document): void {
-    // Find all canvas elements in DOM
-    const canvasElements = iframeDoc.querySelectorAll('[data-canvas-id]');
+    performance.mark('registry-sync-start');
 
+    // V2.0: Scan for thryveId elements first (flow elements)
+    const thryveElements = iframeDoc.querySelectorAll('[data-thryve-id]');
+    thryveElements.forEach(el => {
+      const thryveId = el.getAttribute('data-thryve-id');
+      if (!thryveId) return;
+
+      this.registerThryveElement(thryveId, el);
+    });
+
+    // Scan for canvas elements (absolute positioned elements)
+    const canvasElements = iframeDoc.querySelectorAll('[data-canvas-id]');
     canvasElements.forEach(el => {
       const id = el.getAttribute('data-canvas-id');
       if (!id) return;
@@ -120,6 +191,23 @@ export class SelectorRegistry {
       this.selectorToId.set(selector, id);
       this.elementRefs.set(selector, el);
     });
+
+    // Performance measurement
+    performance.mark('registry-sync-end');
+    performance.measure('registry-sync', 'registry-sync-start', 'registry-sync-end');
+
+    const measure = performance.getEntriesByName('registry-sync')[0];
+    const duration = measure?.duration || 0;
+    const totalElements = thryveElements.length + canvasElements.length;
+
+    if (duration > 50) {
+      console.warn(`⚠️ Registry sync: ${duration.toFixed(2)}ms > 50ms budget (${totalElements} elements)`);
+    }
+
+    // Clean up performance entries
+    performance.clearMarks('registry-sync-start');
+    performance.clearMarks('registry-sync-end');
+    performance.clearMeasures('registry-sync');
   }
 
   /**
@@ -136,6 +224,7 @@ export class SelectorRegistry {
 
   /**
    * Get debug info about registry state
+   * V2.0: Includes thryveId stats
    */
   getDebugInfo(): {
     totalIds: number;
@@ -143,6 +232,7 @@ export class SelectorRegistry {
     totalRefs: number;
     canvasElements: number;
     flowElements: number;
+    thryveElements: number;  // V2.0
   } {
     const canvasElements = Array.from(this.idToSelector.keys()).filter(
       id => !id.startsWith('flow-')
@@ -156,7 +246,8 @@ export class SelectorRegistry {
       totalSelectors: this.selectorToId.size,
       totalRefs: this.elementRefs.size,
       canvasElements,
-      flowElements
+      flowElements,
+      thryveElements: this.thryveIdToElement.size,  // V2.0
     };
   }
 
@@ -195,6 +286,13 @@ export const registry = {
   },
 
   /**
+   * V2.0: Register thryveId element
+   */
+  addThryve(thryveId: string, element: Element): void {
+    selectorRegistry.registerThryveElement(thryveId, element);
+  },
+
+  /**
    * Resolve ID to selector
    */
   toSelector(id: string): string | undefined {
@@ -213,6 +311,27 @@ export const registry = {
    */
   getElement(selector: string): Element | undefined {
     return selectorRegistry.getElement(selector);
+  },
+
+  /**
+   * V2.0: Get element by thryveId or canvasId (thryveId first)
+   */
+  resolve(id: string): Element | undefined {
+    return selectorRegistry.resolveElement(id);
+  },
+
+  /**
+   * V2.0: Get element by thryveId
+   */
+  getByThryveId(thryveId: string): Element | undefined {
+    return selectorRegistry.getElementByThryveId(thryveId);
+  },
+
+  /**
+   * V2.0: Update element ref by thryveId
+   */
+  updateElementRef(thryveId: string, element: Element): void {
+    selectorRegistry.updateElementRefByThryveId(thryveId, element);
   },
 
   /**
@@ -241,6 +360,6 @@ export const registry = {
    */
   debug(): void {
     const info = selectorRegistry.getDebugInfo();
-    console.log('📋 Selector Registry:', info);
+    console.log('📋 Selector Registry V2.0:', info);
   }
 };
