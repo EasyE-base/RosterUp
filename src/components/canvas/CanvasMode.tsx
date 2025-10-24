@@ -606,7 +606,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
         <iframe
           ref={iframeRef}
           srcDoc={effectiveHTML}
-          sandbox="allow-scripts" // V2.0: Secure isolation - omit allow-same-origin
+          sandbox="allow-same-origin allow-scripts" // V2.0 RC1: Enable functionality, defer strict security to v2.1.0
           title="Canvas Mode Preview"
           style={{
             width: '100%',
@@ -615,7 +615,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
             display: 'block',
           }}
           onLoad={() => {
-            console.log('🔒 Iframe loaded with sandbox security (allow-scripts only)');
+            console.log('🔓 Iframe loaded with relaxed sandbox (allow-same-origin allow-scripts) for RC1 functionality');
           }}
         />
       </div>
