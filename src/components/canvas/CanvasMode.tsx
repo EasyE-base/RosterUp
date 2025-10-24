@@ -596,6 +596,30 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
         </div>
       )}
 
+      {/* V2.0: Iframe rendering with sandbox security */}
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'auto',
+      }}>
+        <iframe
+          ref={iframeRef}
+          srcDoc={effectiveHTML}
+          sandbox="allow-scripts" // V2.0: Secure isolation - omit allow-same-origin
+          title="Canvas Mode Preview"
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            display: 'block',
+          }}
+          onLoad={() => {
+            console.log('🔒 Iframe loaded with sandbox security (allow-scripts only)');
+          }}
+        />
+      </div>
+
       {/* Breakpoint Selector */}
       <BreakpointSelector
         currentBreakpoint={currentBreakpoint}
