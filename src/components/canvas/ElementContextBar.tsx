@@ -2,6 +2,7 @@
  * Element Context Bar
  * Appears when element is selected
  * Provides actions: Edit, Replace, Style, Delete, AI Modify, Unlock for Transform
+ * V2.0: Integrated with mutationEngine for flow-to-absolute unlock
  */
 
 import React, { useState, useRef } from 'react';
@@ -9,10 +10,13 @@ import type { CanvasElement, Transform } from '@/lib/types';
 import { useCommandBus } from '@/stores/commandBus';
 import type { Breakpoint } from '@/lib/breakpoints';
 import { aiModifyElement, isAIAvailable } from '@/lib/aiService';
+import { mutationEngine } from '@/lib/mutationEngine';
+import { registry } from '@/lib/selectorRegistry';
 
 interface ElementContextBarProps {
   element: CanvasElement;
   currentBreakpoint: Breakpoint;
+  iframeRef?: React.RefObject<HTMLIFrameElement>; // V2.0: Required for unlock
   onClose?: () => void;
   onOpenMediaOrganizer?: () => void;
 }
@@ -20,6 +24,7 @@ interface ElementContextBarProps {
 export function ElementContextBar({
   element,
   currentBreakpoint,
+  iframeRef, // V2.0: Needed for unlock
   onClose,
   onOpenMediaOrganizer,
 }: ElementContextBarProps) {
@@ -170,22 +175,67 @@ export function ElementContextBar({
   };
 
   /**
-   * Handle unlock for transform (convert flow to absolute)
+   * V2.0: Handle unlock for transform (convert flow to absolute)
+   * Captures computed styles and position, then converts to absolute mode
    */
   const handleUnlock = () => {
-    if (element.mode === 'flow') {
+    if (element.mode !== 'flow' || !element.thryveId || !iframeRef?.current) {
+      console.warn('⚠️ Cannot unlock: missing requirements', {
+        mode: element.mode,
+        thryveId: element.thryveId,
+        hasIframe: !!iframeRef?.current,
+      });
+      return;
+    }
+
+    try {
+      // Get iframe document
+      const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+      if (!iframeDoc) {
+        console.error('❌ Cannot access iframe document');
+        return;
+      }
+
+      // Get DOM element using thryveId
+      const domElement = registry.getByThryveId(element.thryveId);
+      if (!domElement) {
+        console.error('❌ Element not found in registry:', element.thryveId);
+        return;
+      }
+
+      // Get viewport width for responsive transform generation
+      const viewportWidth = iframeDoc.defaultView?.innerWidth || 1440;
+
+      // Use mutationEngine to convert flow → absolute with preserved styles
+      const absoluteElement = mutationEngine.unlockFlowElement(
+        element.thryveId,
+        domElement,
+        viewportWidth
+      );
+
+      // Dispatch insert command for new absolute element
       commandBus.dispatch({
-        type: 'unlock',
+        type: 'insert',
         payload: {
-          selector: element.originalSelector || `[data-canvas-id="${element.id}"]`,
+          element: absoluteElement,
         },
         context: {
           timestamp: Date.now(),
           source: 'manual',
-          description: 'Unlocked element for absolute positioning',
+          description: `Unlocked flow element to absolute: ${element.thryveId}`,
         },
       });
-      console.log('🔓 Unlocked element for transform');
+
+      console.log('🔓 Unlocked element for transform:', {
+        thryveId: element.thryveId,
+        position: absoluteElement.breakpoints?.desktop,
+        preservedStyles: Object.keys(absoluteElement.styles || {}).length,
+      });
+
+      // Close context bar after unlock
+      onClose?.();
+    } catch (error) {
+      console.error('❌ Unlock failed:', error);
     }
   };
 

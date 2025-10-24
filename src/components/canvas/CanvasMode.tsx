@@ -623,10 +623,12 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
       />
 
       {/* Element Context Bar */}
+      {/* V2.0: Pass iframeRef for unlock functionality */}
       {selectedElement && (
         <ElementContextBar
           element={selectedElement}
           currentBreakpoint={currentBreakpoint}
+          iframeRef={iframeRef}
           onClose={() => setSelectedElement(null)}
           onOpenMediaOrganizer={() => setIsMediaOrganizerOpen(true)}
         />
