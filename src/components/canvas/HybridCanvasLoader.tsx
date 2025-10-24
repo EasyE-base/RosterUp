@@ -87,7 +87,7 @@ async function loadClonedHTML(pageId: string, signal: AbortSignal): Promise<Load
 
   // Step 1: Fetch clone_html from Supabase
   const { data, error } = await supabase
-    .from('pages')
+    .from('website_pages')
     .select('clone_html')
     .eq('id', pageId)
     .single();
