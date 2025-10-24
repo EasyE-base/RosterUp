@@ -25,12 +25,19 @@ const STORE_NAME = 'command-history';
 // Auto-save interval (30 seconds)
 const AUTO_SAVE_INTERVAL = 30000;
 
+// V2.0: History pruning limit
+const MAX_HISTORY = 1000;
+
 interface CommandBusState {
   // State
   history: Command[][];        // Array of command batches
   currentIndex: number;        // Position in history
   elements: Map<string, CanvasElement>;
   isDirty: boolean;            // Has uncommitted changes
+
+  // V2.0: Batch tracking
+  batchDepth: number;          // Nesting level for batch operations
+  batchBuffer: Command[];      // Buffered commands in current batch
 
   // Actions
   dispatch: (command: Command) => void;
@@ -43,6 +50,11 @@ interface CommandBusState {
   reset: () => void;
   loadFromIndexedDB: () => Promise<void>;
   saveToIndexedDB: () => Promise<void>;
+
+  // V2.0: New methods
+  beginBatch: () => void;
+  endBatch: () => void;
+  rehydrate: (commands: Command[][]) => void;
 }
 
 // Helper to get IndexedDB instance

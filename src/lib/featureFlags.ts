@@ -67,3 +67,21 @@ export function logFeatureFlags(): void {
 export function useFeatureFlags(): FeatureFlags {
   return getAllFeatureFlags();
 }
+
+/**
+ * Get editor mode (V2.0 kill-switch)
+ * Allows runtime toggle between Canvas, Smart, and Hybrid modes
+ */
+export type EditorMode = 'canvas' | 'smart' | 'hybrid';
+
+export function getEditorMode(): EditorMode {
+  const mode = import.meta.env.VITE_EDITOR_MODE as string;
+
+  // Validate mode
+  if (mode === 'canvas' || mode === 'smart' || mode === 'hybrid') {
+    return mode;
+  }
+
+  // Default to canvas mode
+  return 'canvas';
+}

@@ -51,6 +51,7 @@ export type ElementMode = 'flow' | 'absolute';
 
 export interface CanvasElement {
   id: string;                    // Unique element ID
+  thryveId?: string;             // V2.0: Stable deterministic ID (for flow elements)
   type: ElementType;
   mode: ElementMode;             // Flow = normal DOM, Absolute = free-transform
 
@@ -72,6 +73,8 @@ export interface CanvasElement {
     padding?: string;
     margin?: string;
     borderRadius?: string;
+    lineHeight?: string;          // V2.0: Preserved on unlock
+    fontFamily?: string;          // V2.0: Preserved on unlock
     [key: string]: string | undefined;  // Allow any CSS property
   };
 
@@ -79,7 +82,7 @@ export interface CanvasElement {
   breakpoints?: BreakpointTransforms;
 
   // Metadata
-  zIndex?: number;
+  zIndex?: number | 'auto';      // V2.0: Support 'auto' for flow elements
   locked?: boolean;              // Prevent accidental edits
   originalSelector?: string;     // If unlocked from flow element
   createdAt?: number;
@@ -104,67 +107,84 @@ export type Command =
   | UnlockCommand
   | BatchCommand;
 
-export interface InsertCommand {
+// V2.0: Base command interface with versioning
+export interface BaseCommand {
+  version: 2;  // Schema version for migration
+  context: OperationContext;
+}
+
+export interface InsertCommand extends BaseCommand {
   type: 'insert';
   payload: {
     element: CanvasElement;
     position: Point;
     parent?: string;  // Parent selector (default: body)
   };
-  context: OperationContext;
 }
 
-export interface TransformCommand {
+export interface TransformCommand extends BaseCommand {
   type: 'transform';
   payload: {
     id: string;
     transform: Transform;
     breakpoint: Breakpoint;
   };
-  context: OperationContext;
 }
 
-export interface UpdateTextCommand {
+export interface UpdateTextCommand extends BaseCommand {
   type: 'update_text';
   payload: {
-    id: string;
+    id?: string;          // Legacy: canvas element ID
+    thryveId?: string;    // V2.0: Flow element stable ID
     text: string;
   };
-  context: OperationContext;
 }
 
-export interface UpdateAttrCommand {
+export interface UpdateAttrCommand extends BaseCommand {
   type: 'update_attr';
   payload: {
-    id: string;
+    id?: string;          // Legacy: canvas element ID
+    thryveId?: string;    // V2.0: Flow element stable ID
     attr: string;
     value: string;
   };
-  context: OperationContext;
 }
 
-export interface DeleteCommand {
+export interface DeleteCommand extends BaseCommand {
   type: 'delete';
   payload: {
-    id: string;
+    id?: string;          // Legacy: canvas element ID
+    thryveId?: string;    // V2.0: Flow element stable ID
+    selector?: string;    // Fallback CSS selector
   };
-  context: OperationContext;
 }
 
-export interface UnlockCommand {
+export interface UnlockCommand extends BaseCommand {
   type: 'unlock';
   payload: {
-    selector: string;  // Convert this flow element to absolute mode
+    thryveId: string;                         // V2.0: Stable element ID
+    transformsByBreakpoint: BreakpointTransforms; // Auto-generated responsive transforms
+    snapshotStyles: ComputedStyles;           // Inlined computed styles for fidelity
+    originalSelector?: string;                // Fallback CSS selector
   };
-  context: OperationContext;
 }
 
-export interface BatchCommand {
+export interface BatchCommand extends BaseCommand {
   type: 'batch';
   payload: {
     commands: Command[];
   };
-  context: OperationContext;
+}
+
+// V2.0: Computed styles snapshot for unlock fidelity
+export interface ComputedStyles {
+  fontSize?: string;
+  fontWeight?: string;
+  lineHeight?: string;
+  color?: string;
+  backgroundColor?: string;
+  fontFamily?: string;
+  [key: string]: string | undefined;
 }
 
 // =============================================================================
