@@ -5,6 +5,22 @@
  */
 
 /**
+ * Safely get className as string
+ * Handles both regular elements (className: string) and SVG elements (className: SVGAnimatedString)
+ */
+function getClassNameString(element: Element): string {
+  const className = element.className;
+
+  // SVG elements have className as SVGAnimatedString
+  if (typeof className === 'object' && className !== null && 'baseVal' in className) {
+    return (className as SVGAnimatedString).baseVal || '';
+  }
+
+  // Regular elements have className as string
+  return typeof className === 'string' ? className : '';
+}
+
+/**
  * Build a stable node path for an element
  * Format: "html > body > div.hero > section[0] > h1"
  *
@@ -21,8 +37,9 @@ export function buildNodePath(node: Element): string {
     const siblings = Array.from(current.parentNode?.children || []);
     const index = siblings.indexOf(current);
     const tag = current.tagName.toLowerCase();
-    const classes = current.className
-      ? `.${current.className.split(' ').filter(Boolean).join('.')}`
+    const classNameStr = getClassNameString(current);
+    const classes = classNameStr
+      ? `.${classNameStr.split(' ').filter(Boolean).join('.')}`
       : '';
     path.unshift(`${tag}${classes}[${index}]`);
     current = current.parentElement;
@@ -70,8 +87,9 @@ export function generateSelector(node: Element): string {
 
   // Build selector from tag, classes, and attributes
   const tag = node.tagName.toLowerCase();
-  const classes = node.className
-    ? `.${node.className.split(' ').filter(Boolean).join('.')}`
+  const classNameStr = getClassNameString(node);
+  const classes = classNameStr
+    ? `.${classNameStr.split(' ').filter(Boolean).join('.')}`
     : '';
 
   // Use nth-of-type for disambiguation
