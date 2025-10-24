@@ -59,13 +59,24 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
     setIsHybridLoading(false);
 
     // Hydrate commandBus with flow elements
-    // Convert Map to Command[][] format for rehydrate
     const elementArray = Array.from(elements.values());
     console.log(`🔄 Hydrating commandBus with ${elementArray.length} flow elements`);
 
-    // Create initial state by directly setting elements
-    // (We don't use rehydrate here since these aren't commands yet)
-    // Elements will be registered in selectorRegistry after iframe loads
+    // Dispatch insert commands for each flow element
+    // This populates commandBus.elements Map for selection/unlock
+    elementArray.forEach((element) => {
+      commandBus.dispatch({
+        type: 'insert',
+        payload: { element },
+        context: {
+          timestamp: element.createdAt || Date.now(),
+          source: 'hydration',
+          description: `Hydrated flow element from clone_html`,
+        },
+      });
+    });
+
+    console.log(`✅ Dispatched ${elementArray.length} insert commands to commandBus`);
 
     performance.mark('canvas-hydrate-end');
     performance.measure('canvas-hydrate', 'canvas-hydrate-start', 'canvas-hydrate-end');
@@ -78,7 +89,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
     performance.clearMarks('canvas-hydrate-start');
     performance.clearMarks('canvas-hydrate-end');
     performance.clearMeasures('canvas-hydrate');
-  }, []);
+  }, [commandBus]);
 
   const handleHybridError = useCallback((error: string) => {
     setHybridLoadError(error);

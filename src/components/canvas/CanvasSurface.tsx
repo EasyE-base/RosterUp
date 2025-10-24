@@ -84,6 +84,7 @@ export function CanvasSurface({
 
   /**
    * Handle click on canvas
+   * V2.0: Check for thryveId on flow elements first, then fall back to hitTest for absolute elements
    */
   const handleClick = useCallback((e: MouseEvent) => {
     if (!enabled) return;
@@ -94,11 +95,36 @@ export function CanvasSurface({
     const position = getViewportCoordinates(e);
     if (!position) return;
 
-    // Check if clicking on a canvas element
+    // V2.0: First check if clicked element has a thryveId (flow element)
+    const target = e.target as HTMLElement;
+    let clickedElement: Element | null = target;
+
+    // Walk up the DOM tree to find an element with data-thryve-id
+    while (clickedElement && clickedElement !== iframeRef.current?.contentDocument?.documentElement) {
+      if (clickedElement.hasAttribute && clickedElement.hasAttribute('data-thryve-id')) {
+        const thryveId = clickedElement.getAttribute('data-thryve-id');
+
+        // Look up the flow element by thryveId
+        const flowElement = Array.from(commandBus.elements.values()).find(
+          el => el.thryveId === thryveId
+        );
+
+        if (flowElement) {
+          // Found flow element - select it
+          setSelectedElement(flowElement);
+          onElementSelect?.(flowElement);
+          console.log('✅ Selected flow element:', flowElement.id, flowElement.type, `thryveId=${thryveId}`);
+          return;
+        }
+      }
+      clickedElement = clickedElement.parentElement;
+    }
+
+    // Fallback: Check if clicking on an absolute-positioned canvas element
     const hitElement = hitTest(position);
 
     if (hitElement) {
-      // Clicked on an element - select it
+      // Clicked on an absolute element - select it
       setSelectedElement(hitElement);
       onElementSelect?.(hitElement);
     } else {
@@ -107,7 +133,7 @@ export function CanvasSurface({
       onElementSelect?.(null);
       onEmptySpaceClick?.(position);
     }
-  }, [enabled, getViewportCoordinates, hitTest, onElementSelect, onEmptySpaceClick]);
+  }, [enabled, getViewportCoordinates, hitTest, onElementSelect, onEmptySpaceClick, iframeRef, commandBus.elements]);
 
   /**
    * Handle drag start
