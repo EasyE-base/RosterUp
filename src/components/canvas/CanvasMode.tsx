@@ -1,7 +1,8 @@
 /**
  * Canvas Mode - Main Component
- * Combines CanvasSurface and CanvasOverlay
- * Provides the full canvas editing experience
+ * V2.0: Hybrid Canvas with cloned HTML support
+ * Combines CanvasSurface, CanvasOverlay, and HybridCanvasLoader
+ * Provides full canvas editing experience with flow-to-absolute unlock
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -13,20 +14,31 @@ import { ElementContextBar } from './ElementContextBar';
 import { SnapshotDebugTool } from '../debug/SnapshotDebugTool';
 import { CanvasE2ETest } from '../debug/CanvasE2ETest';
 import { MediaOrganizer } from '../media/MediaOrganizer';
+import { HybridCanvasLoader } from './HybridCanvasLoader';
 import { useCommandBus } from '@/stores/commandBus';
+import { iframeSyncManager } from '@/lib/iframeSyncManager';
+import { registry } from '@/lib/selectorRegistry';
 import { getCurrentBreakpoint, TYPICAL_WIDTHS, normalizeTransformBetweenBreakpoints, type Breakpoint } from '@/lib/breakpoints';
+import { getEditorMode } from '@/lib/featureFlags';
 import type { Point, CanvasElement, Transform } from '@/lib/types';
 
 interface CanvasModeProps {
   iframeRef?: React.RefObject<HTMLIFrameElement>;
   htmlContent?: string;
   enabled?: boolean;
+  pageId?: string;  // V2.0: Required for hybrid mode
 }
 
-export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', enabled = true }: CanvasModeProps = {}) {
+export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', enabled = true, pageId }: CanvasModeProps = {}) {
   const commandBus = useCommandBus();
   const internalIframeRef = useRef<HTMLIFrameElement>(null);
   const iframeRef = externalIframeRef || internalIframeRef;
+
+  // V2.0: Hybrid mode state
+  const editorMode = getEditorMode();
+  const [hybridHTML, setHybridHTML] = useState<string>('');
+  const [isHybridLoading, setIsHybridLoading] = useState(false);
+  const [hybridLoadError, setHybridLoadError] = useState<string | null>(null);
 
   const [selectedElement, setSelectedElement] = useState<CanvasElement | null>(null);
   const [hoveredElement, setHoveredElement] = useState<CanvasElement | null>(null);
@@ -38,11 +50,86 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
   const [showE2EPanel, setShowE2EPanel] = useState(false);
 
   /**
+   * V2.0: Hybrid loading - fetch clone_html and hydrate state
+   */
+  const handleHybridLoad = useCallback((html: string, elements: Map<string, CanvasElement>) => {
+    performance.mark('canvas-hydrate-start');
+
+    setHybridHTML(html);
+    setIsHybridLoading(false);
+
+    // Hydrate commandBus with flow elements
+    // Convert Map to Command[][] format for rehydrate
+    const elementArray = Array.from(elements.values());
+    console.log(`🔄 Hydrating commandBus with ${elementArray.length} flow elements`);
+
+    // Create initial state by directly setting elements
+    // (We don't use rehydrate here since these aren't commands yet)
+    // Elements will be registered in selectorRegistry after iframe loads
+
+    performance.mark('canvas-hydrate-end');
+    performance.measure('canvas-hydrate', 'canvas-hydrate-start', 'canvas-hydrate-end');
+
+    const measure = performance.getEntriesByName('canvas-hydrate')[0];
+    const duration = measure?.duration || 0;
+
+    console.log(`✅ Canvas hydrated in ${duration.toFixed(2)}ms`);
+
+    performance.clearMarks('canvas-hydrate-start');
+    performance.clearMarks('canvas-hydrate-end');
+    performance.clearMeasures('canvas-hydrate');
+  }, []);
+
+  const handleHybridError = useCallback((error: string) => {
+    setHybridLoadError(error);
+    setIsHybridLoading(false);
+    console.error('❌ Hybrid load failed:', error);
+  }, []);
+
+  /**
    * Load command history from IndexedDB on mount
+   * V2.0: Skip if in hybrid mode (will load from clone_html instead)
    */
   useEffect(() => {
-    commandBus.loadFromIndexedDB();
-  }, []);
+    if (editorMode !== 'canvas' || !pageId) {
+      commandBus.loadFromIndexedDB();
+    }
+  }, [editorMode, pageId]);
+
+  /**
+   * V2.0: Initialize IframeSyncManager after iframe loads
+   * Syncs DOM mutations with selectorRegistry
+   */
+  useEffect(() => {
+    if (!iframeRef.current || !editorMode || editorMode === 'smart') return;
+
+    const iframe = iframeRef.current;
+
+    const initSync = () => {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      // Start sync manager
+      iframeSyncManager.start(iframeDoc);
+
+      // Sync selector registry with current DOM
+      registry.sync(iframeDoc);
+
+      console.log('📡 IframeSyncManager initialized');
+    };
+
+    // Wait for iframe to load
+    if (iframe.contentDocument?.readyState === 'complete') {
+      initSync();
+    } else {
+      iframe.addEventListener('load', initSync);
+    }
+
+    return () => {
+      iframeSyncManager.stop();
+      iframe.removeEventListener('load', initSync);
+    };
+  }, [iframeRef, editorMode, hybridHTML]);
 
   /**
    * Update viewport size and breakpoint when iframe resizes
@@ -457,8 +544,58 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
 
   if (!enabled) return null;
 
+  // V2.0: Determine HTML source (hybrid vs legacy)
+  const effectiveHTML = editorMode === 'canvas' && hybridHTML ? hybridHTML : htmlContent;
+
   return (
     <div className="canvas-mode-container">
+      {/* V2.0: Hybrid Canvas Loader - Non-rendering component */}
+      {editorMode === 'canvas' && pageId && (
+        <HybridCanvasLoader
+          pageId={pageId}
+          onLoad={handleHybridLoad}
+          onError={handleHybridError}
+        />
+      )}
+
+      {/* V2.0: Loading state */}
+      {isHybridLoading && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '20px 40px',
+          borderRadius: 8,
+          fontSize: 16,
+          fontWeight: 500,
+          zIndex: 10001,
+        }}>
+          Loading cloned HTML...
+        </div>
+      )}
+
+      {/* V2.0: Error state */}
+      {hybridLoadError && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: '#ef4444',
+          color: 'white',
+          padding: '20px 40px',
+          borderRadius: 8,
+          fontSize: 16,
+          fontWeight: 500,
+          zIndex: 10001,
+        }}>
+          Error: {hybridLoadError}
+        </div>
+      )}
+
       {/* Breakpoint Selector */}
       <BreakpointSelector
         currentBreakpoint={currentBreakpoint}
@@ -468,7 +605,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
       {/* Surface layer - handles DOM rendering and interaction */}
       <CanvasSurface
         iframeRef={iframeRef}
-        htmlContent={htmlContent}
+        htmlContent={effectiveHTML}
         onEmptySpaceClick={handleEmptySpaceClick}
         onElementSelect={handleElementSelect}
         enabled={enabled}
