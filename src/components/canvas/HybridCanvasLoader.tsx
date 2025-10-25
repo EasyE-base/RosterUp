@@ -33,14 +33,29 @@ export function HybridCanvasLoader({ pageId, onLoad, onError }: HybridCanvasLoad
   const [isLoading, setIsLoading] = useState(true);
   const blobUrlRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef<string | null>(null); // Track which pageId we've loaded
 
   useEffect(() => {
+    // Skip if we've already successfully loaded this pageId
+    if (hasLoadedRef.current === pageId) {
+      console.log(`⏭️ Skipping duplicate load for pageId: ${pageId}`);
+      return;
+    }
+
+    console.log(`🔄 Starting load for pageId: ${pageId}`);
+
     // Create abort controller for cleanup
     abortControllerRef.current = new AbortController();
 
     loadClonedHTML(pageId, abortControllerRef.current.signal)
       .then((result) => {
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (abortControllerRef.current?.signal.aborted) {
+          console.log(`⏸️ Load aborted for pageId: ${pageId}`);
+          return;
+        }
+
+        // Mark as successfully loaded ONLY after completion
+        hasLoadedRef.current = pageId;
 
         onLoad(result.html, result.elements);
         setIsLoading(false);
@@ -63,9 +78,15 @@ export function HybridCanvasLoader({ pageId, onLoad, onError }: HybridCanvasLoad
         setIsLoading(false);
       });
 
-    // Cleanup on unmount
+    // Cleanup on unmount or pageId change
     return () => {
-      abortControllerRef.current?.abort();
+      // Only abort if we're unmounting or changing pages
+      const shouldAbort = hasLoadedRef.current === pageId;
+
+      if (shouldAbort) {
+        abortControllerRef.current?.abort();
+        console.log(`🧹 Cleanup for pageId: ${pageId}`);
+      }
 
       // Revoke blob URL to avoid memory leaks
       if (blobUrlRef.current) {
@@ -73,7 +94,8 @@ export function HybridCanvasLoader({ pageId, onLoad, onError }: HybridCanvasLoad
         blobUrlRef.current = null;
       }
     };
-  }, [pageId, onLoad, onError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId]); // Only re-run when pageId changes, not when callbacks change
 
   // This is a non-rendering loader component
   return null;
@@ -111,16 +133,22 @@ async function loadClonedHTML(pageId: string, signal: AbortSignal): Promise<Load
     console.warn('⚠️ Failed to save element mappings:', err);
   });
 
-  // Performance measurement
-  performance.mark('hybrid-load-end');
-  performance.measure('hybrid-load', 'hybrid-load-start', 'hybrid-load-end');
-
-  const measure = performance.getEntriesByName('hybrid-load')[0];
-  const duration = measure?.duration || 0;
-
-  performance.clearMarks('hybrid-load-start');
-  performance.clearMarks('hybrid-load-end');
-  performance.clearMeasures('hybrid-load');
+  // Performance measurement (safe with try-catch for aborted loads)
+  let duration = 0;
+  try {
+    performance.mark('hybrid-load-end');
+    performance.measure('hybrid-load', 'hybrid-load-start', 'hybrid-load-end');
+    const measure = performance.getEntriesByName('hybrid-load')[0];
+    duration = measure?.duration || 0;
+  } catch (error) {
+    // Ignore performance measurement errors from aborted loads
+    console.warn('⚠️ Performance measurement skipped:', error);
+  } finally {
+    // Always clean up marks
+    performance.clearMarks('hybrid-load-start');
+    performance.clearMarks('hybrid-load-end');
+    performance.clearMeasures('hybrid-load');
+  }
 
   return {
     html: processedHTML,

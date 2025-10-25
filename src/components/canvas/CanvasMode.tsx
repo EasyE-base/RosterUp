@@ -553,10 +553,73 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [enabled, selectedElement, commandBus, handleBreakpointChange, currentBreakpoint, viewportSize]);
 
+  /**
+   * CSS Inspection - Debug why iframe isn't visible
+   */
+  useEffect(() => {
+    if (!iframeRef.current || !hybridHTML) return;
+
+    // Wait for iframe to fully load
+    const timer = setTimeout(() => {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+
+      const computed = window.getComputedStyle(iframe);
+      const container = iframe.parentElement;
+
+      console.log('🔍 Iframe computed styles:', {
+        display: computed.display,
+        visibility: computed.visibility,
+        width: computed.width,
+        height: computed.height,
+        position: computed.position,
+        top: computed.top,
+        left: computed.left,
+        zIndex: computed.zIndex,
+        opacity: computed.opacity,
+        transform: computed.transform,
+      });
+
+      if (container) {
+        const containerComputed = window.getComputedStyle(container);
+        console.log('🔍 Container computed styles:', {
+          display: containerComputed.display,
+          width: containerComputed.width,
+          height: containerComputed.height,
+          overflow: containerComputed.overflow,
+          position: containerComputed.position,
+        });
+      }
+
+      // Check iframe content
+      const iframeDoc = iframe.contentDocument;
+      if (iframeDoc) {
+        console.log('🔍 Iframe document:', {
+          readyState: iframeDoc.readyState,
+          bodyChildCount: iframeDoc.body?.children.length || 0,
+          bodyScrollHeight: iframeDoc.body?.scrollHeight || 0,
+          bodyClientHeight: iframeDoc.body?.clientHeight || 0,
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [hybridHTML, iframeRef]);
+
   if (!enabled) return null;
 
   // V2.0: Determine HTML source (hybrid vs legacy)
   const effectiveHTML = editorMode === 'canvas' && hybridHTML ? hybridHTML : htmlContent;
+
+  // Debug logging
+  console.log('🎨 CanvasMode render:', {
+    editorMode,
+    hasHybridHTML: !!hybridHTML,
+    hybridHTMLLength: hybridHTML?.length || 0,
+    htmlContentLength: htmlContent?.length || 0,
+    effectiveHTMLLength: effectiveHTML?.length || 0,
+    usingHybrid: editorMode === 'canvas' && !!hybridHTML,
+  });
 
   return (
     <div className="canvas-mode-container">
