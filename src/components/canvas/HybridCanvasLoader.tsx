@@ -107,20 +107,41 @@ export function HybridCanvasLoader({ pageId, onLoad, onError }: HybridCanvasLoad
 async function loadClonedHTML(pageId: string, signal: AbortSignal): Promise<LoadResult> {
   performance.mark('hybrid-load-start');
 
+  console.log(`🔍 Fetching clone_html for pageId: ${pageId}`);
+
   // Step 1: Fetch clone_html from Supabase
+  // Use maybeSingle() instead of single() to handle missing rows gracefully
   const { data, error } = await supabase
     .from('website_pages')
     .select('clone_html')
     .eq('id', pageId)
-    .single();
+    .maybeSingle();
 
   if (signal.aborted) throw new Error('Aborted');
 
-  if (error || !data?.clone_html) {
-    throw new Error(`Failed to fetch clone_html: ${error?.message || 'No HTML found'}`);
+  // Log detailed error info for debugging
+  if (error) {
+    console.error('❌ Supabase query error:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error(`Failed to fetch clone_html: ${error.message}`);
+  }
+
+  if (!data) {
+    console.error(`❌ No page found with id: ${pageId}`);
+    throw new Error(`Page not found with id: ${pageId}. Please check the URL or import a website first.`);
+  }
+
+  if (!data.clone_html) {
+    console.error(`❌ Page ${pageId} exists but has no clone_html data`);
+    throw new Error(`Page ${pageId} has no cloned HTML. Please re-import the website.`);
   }
 
   const rawHTML = data.clone_html;
+  console.log(`✅ Fetched clone_html: ${rawHTML.length} bytes`);
 
   // Step 2: Sanitize HTML
   const { headHTML, bodyHTML } = sanitizeClonedHTML(rawHTML);
