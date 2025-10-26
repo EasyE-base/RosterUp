@@ -161,7 +161,7 @@ serve(async (req) => {
           js: js,
         };
 
-        // Create a single "clone" section with HTML/CSS/JS content
+        // Create a single "clone" section with HTML/CSS/JS content (legacy format)
         const { error: sectionError } = await supabase
           .from('website_sections')
           .insert({
@@ -179,6 +179,42 @@ serve(async (req) => {
           });
 
         if (sectionError) throw sectionError;
+
+        // V2.0: Also populate clone_html column for Canvas Mode hybrid loading
+        // Reconstruct full HTML document with embedded CSS/JS
+        const fullHTML = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+      ${pageData.css}
+    </style>
+  </head>
+  <body>
+    ${pageData.html}
+    <script>
+      ${pageData.js}
+    </script>
+  </body>
+</html>`;
+
+        // Update page record with clone_html (ignore errors if column doesn't exist)
+        try {
+          const { error: updateError } = await supabase
+            .from('website_pages')
+            .update({ clone_html: fullHTML })
+            .eq('id', pageRecord.id);
+
+          if (updateError) {
+            console.warn(`⚠️ Could not update clone_html for page ${pageRecord.id}:`, updateError.message);
+          } else {
+            console.log(`✅ Populated clone_html for Canvas Mode V2.0`);
+          }
+        } catch (e) {
+          console.log('clone_html column not found, skipping V2.0 format');
+        }
 
         clonedPages.push({
           id: pageRecord.id,
