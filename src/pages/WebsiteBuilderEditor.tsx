@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -31,6 +31,14 @@ import { CanvasMode } from '../components/canvas/CanvasMode';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useScreenSize } from '../hooks/useScreenSize';
+import { SectionCommandBus } from '../lib/sectionCommandBus';
+import { useDebouncedCallback } from '../lib/debounce';
+import SectionRenderer from '../components/website-builder/inline-editing/SectionRenderer';
+import SectionMenu from '../components/website-builder/inline-editing/SectionMenu';
+import Toolbar from '../components/website-builder/inline-editing/Toolbar';
+import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { SortableSectionWrapper } from '../components/website-builder/inline-editing/SortableSectionWrapper';
 
 function WebsiteBuilderEditorContent() {
   const { pageId } = useParams();
@@ -83,6 +91,13 @@ function WebsiteBuilderEditorContent() {
   const [showRulers, setShowRulers] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(true);
+
+  // Template mode state
+  const [templateSections, setTemplateSections] = useState<any[]>([]);
+  const [isTemplatePage, setIsTemplatePage] = useState(false);
+  const [templateEditMode, setTemplateEditMode] = useState(false);
+  const [showSectionMenu, setShowSectionMenu] = useState(false);
+  const commandBusRef = useRef<SectionCommandBus>(new SectionCommandBus());
 
   useEffect(() => {
     if (pageId) {
@@ -194,6 +209,145 @@ function WebsiteBuilderEditorContent() {
   };
 
   const { blocks: editorBlocks, sections: editorSections } = useWebsiteEditor();
+
+  // Detect template mode based on section_type field
+  useEffect(() => {
+    const hasTemplateSections = editorSections?.some((s: any) => s.section_type);
+    setIsTemplatePage(Boolean(hasTemplateSections));
+    if (hasTemplateSections) {
+      setTemplateSections(editorSections);
+      setTemplateEditMode(true);
+    }
+  }, [editorSections]);
+
+  // Load template sections
+  const loadTemplateSections = useCallback(async (pageId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('website_sections')
+        .select('*')
+        .eq('page_id', pageId)
+        .order('order_index', { ascending: true });
+      if (!error && data) {
+        setTemplateSections(data);
+        loadSections(data);
+      }
+    } catch (error) {
+      console.error('Error loading template sections:', error);
+    }
+  }, [loadSections]);
+
+  useEffect(() => {
+    if (page?.id && isTemplatePage) {
+      loadTemplateSections(page.id);
+    }
+  }, [page?.id, isTemplatePage, loadTemplateSections]);
+
+  // Debounced section content update
+  const updateSectionContent = useDebouncedCallback(async (id: string, content: Record<string, any>) => {
+    setSaving(true);
+    try {
+      const current = templateSections.find((s: any) => s.id === id);
+      await supabase.from('website_sections').update({
+        styles: { ...(current?.styles ?? {}), content },
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+      setTemplateSections((prev: any[]) =>
+        prev.map((s: any) => s.id === id ? { ...s, styles: { ...(s.styles ?? {}), content } } : s)
+      );
+    } catch (error) {
+      console.error('Error updating section content:', error);
+    } finally {
+      setSaving(false);
+    }
+  }, 300);
+
+  // Template section handlers with CommandBus integration
+  const handleSectionUpdate = (id: string, newContent: Record<string, any>) => {
+    const oldContent = templateSections.find((s: any) => s.id === id)?.styles?.content ?? {};
+    commandBusRef.current.execute({
+      type: 'updateSection',
+      payload: { sectionId: id, content: newContent },
+      previousState: oldContent,
+      apply: async () => { await updateSectionContent(id, newContent); },
+      revert: async () => { await updateSectionContent(id, oldContent); },
+    });
+  };
+
+  const handleAddSection = async (tpl: any) => {
+    if (!page?.id) return;
+    const newSection = {
+      page_id: page.id,
+      name: tpl.name,
+      section_type: tpl.id.replace(/-sports-\d+$/, ''),
+      order_index: templateSections.length,
+      styles: tpl.sections?.[0]?.styles ?? {},
+    };
+
+    await commandBusRef.current.execute({
+      type: 'addSection',
+      payload: newSection,
+      apply: async () => {
+        const { data, error } = await supabase.from('website_sections').insert(newSection).select().single();
+        if (error) throw error;
+        setTemplateSections((prev: any[]) => [...prev, data]);
+        setShowSectionMenu(false);
+      },
+      revert: async () => {
+        const last = templateSections[templateSections.length - 1];
+        if (last?.id) {
+          await supabase.from('website_sections').delete().eq('id', last.id);
+          setTemplateSections((prev: any[]) => prev.slice(0, -1));
+        }
+      },
+    });
+  };
+
+  const handleDeleteSection = async (id: string) => {
+    const section = templateSections.find((s: any) => s.id === id);
+    if (!section) return;
+
+    await commandBusRef.current.execute({
+      type: 'deleteSection',
+      payload: { sectionId: id },
+      previousState: section,
+      apply: async () => {
+        await supabase.from('website_sections').delete().eq('id', id);
+        setTemplateSections((prev: any[]) => prev.filter((s: any) => s.id !== id));
+      },
+      revert: async () => {
+        await supabase.from('website_sections').insert(section);
+        if (page?.id) await loadTemplateSections(page.id);
+      },
+    });
+  };
+
+  const handleReorder = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = templateSections.findIndex((s: any) => s.id === active.id);
+    const newIndex = templateSections.findIndex((s: any) => s.id === over.id);
+    const next = arrayMove(templateSections, oldIndex, newIndex);
+
+    await commandBusRef.current.execute({
+      type: 'reorderSections',
+      payload: { fromIndex: oldIndex, toIndex: newIndex },
+      previousState: templateSections,
+      apply: async () => {
+        setTemplateSections(next);
+        await Promise.all(next.map((s: any, i: number) =>
+          supabase.from('website_sections').update({ order_index: i }).eq('id', s.id)
+        ));
+      },
+      revert: async () => {
+        setTemplateSections(templateSections);
+        await Promise.all(templateSections.map((s: any, i: number) =>
+          supabase.from('website_sections').update({ order_index: i }).eq('id', s.id)
+        ));
+      },
+    });
+  };
 
   const handleSave = async () => {
     if (!pageId || !page) return;
@@ -320,8 +474,20 @@ function WebsiteBuilderEditorContent() {
   // Keyboard shortcuts - defined after all handler functions
   useKeyboardShortcuts({
     onSave: handleSave,
-    onUndo: undo,
-    onRedo: redo,
+    onUndo: () => {
+      if (isTemplatePage) {
+        commandBusRef.current.undo();
+      } else {
+        undo();
+      }
+    },
+    onRedo: () => {
+      if (isTemplatePage) {
+        commandBusRef.current.redo();
+      } else {
+        redo();
+      }
+    },
     onDelete: () => {
       if (selectedBlockId) {
         deleteBlock(selectedBlockId);
@@ -575,7 +741,55 @@ function WebsiteBuilderEditorContent() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {websiteMode === 'clone' && cloneHtml ? (
+        {isTemplatePage && templateSections.length > 0 ? (
+          // Template Mode - Inline editing with sections
+          <div className="flex flex-col h-full">
+            <Toolbar
+              editMode={templateEditMode}
+              onToggleEditMode={() => setTemplateEditMode(!templateEditMode)}
+              canUndo={commandBusRef.current.canUndo()}
+              canRedo={commandBusRef.current.canRedo()}
+              onUndo={() => commandBusRef.current.undo()}
+              onRedo={() => commandBusRef.current.redo()}
+              saving={saving}
+              onAddSection={() => setShowSectionMenu(true)}
+            />
+            <div className="flex-1 overflow-y-auto bg-slate-950">
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={handleReorder}
+              >
+                <SortableContext
+                  items={templateSections.map((s: any) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {templateSections.map((section: any) => (
+                    <SortableSectionWrapper key={section.id} id={section.id}>
+                      {({ dragHandleProps }) => (
+                        <div>
+                          <SectionRenderer
+                            sections={[section]}
+                            editMode={templateEditMode}
+                            onUpdateSection={handleSectionUpdate}
+                            onDeleteSection={handleDeleteSection}
+                            dragHandleProps={dragHandleProps}
+                          />
+                        </div>
+                      )}
+                    </SortableSectionWrapper>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            </div>
+            {showSectionMenu && page && (
+              <SectionMenu
+                onClose={() => setShowSectionMenu(false)}
+                onSelect={handleAddSection}
+                pageId={page.id}
+              />
+            )}
+          </div>
+        ) : websiteMode === 'clone' && cloneHtml ? (
           <div className="h-full flex flex-col bg-white">
             {/* Clone Mode Notice */}
             <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center justify-between">
@@ -736,7 +950,16 @@ function WebsiteBuilderEditorContent() {
 
             {/* Preview Content */}
             <div className="flex-1 overflow-hidden bg-white">
-              {websiteMode === 'clone' && cloneHtml ? (
+              {isTemplatePage && templateSections.length > 0 ? (
+                // Template sections preview
+                <div className="h-full overflow-auto">
+                  <SectionRenderer
+                    sections={templateSections}
+                    editMode={false}
+                    onUpdateSection={() => {}}
+                  />
+                </div>
+              ) : websiteMode === 'clone' && cloneHtml ? (
                 // Use CloneViewer for pixel-perfect preview of imported websites
                 <CloneViewer
                   html={cloneHtml}
