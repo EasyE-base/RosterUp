@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "templates": [
+    {
+      "id": "hero-sports-01",
+      "name": "Sports Hero Section",
+      "description": "Eye-catching hero section with team branding and call-to-action",
+      "preview_url": "/templates/assets/preview-hero.jpg",
+      "file": "hero.json"
+    },
+    {
+      "id": "about-sports-01",
+      "name": "About Section",
+      "description": "Introduction section with organization story and mission",
+      "preview_url": "/templates/assets/preview-about.jpg",
+      "file": "about.json"
+    },
+    {
+      "id": "schedule-sports-01",
+      "name": "Schedule Section",
+      "description": "Display upcoming games and events in a clean table format",
+      "preview_url": "/templates/assets/preview-schedule.jpg",
+      "file": "schedule.json"
+    },
+    {
+      "id": "contact-sports-01",
+      "name": "Contact Section",
+      "description": "Contact information and inquiry form for visitors",
+      "preview_url": "/templates/assets/preview-contact.jpg",
+      "file": "contact.json"
+    }
+  ],
+  "template_packs": [
+    {
+      "id": "complete-sports-site",
+      "name": "Complete Sports Team Site",
+      "description": "Full website with hero, about, schedule, and contact sections",
+      "templates": [
+        "hero-sports-01",
+        "about-sports-01",
+        "schedule-sports-01",
+        "contact-sports-01"
+      ],
+      "preview_url": "/templates/assets/preview-complete-pack.jpg"
+    }
+  ]
+}

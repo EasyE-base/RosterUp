@@ -1,0 +1,36 @@
+{
+  "id": "about-sports-01",
+  "name": "About Section",
+  "description": "Introduction section with organization story and mission",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "About Us",
+      "section_type": "about",
+      "content": {
+        "title": "About {{org_name}}",
+        "subtitle": "Our Story",
+        "body": "Founded with a passion for youth sports, {{org_name}} is dedicated to developing young athletes through teamwork, discipline, and sportsmanship. We provide a positive environment where players can grow both on and off the field.",
+        "mission_title": "Our Mission",
+        "mission": "To empower young athletes to reach their full potential through quality coaching, competitive play, and character development.",
+        "stats": [
+          { "label": "Years Active", "value": "10+" },
+          { "label": "Players Coached", "value": "500+" },
+          { "label": "Championships", "value": "15" }
+        ]
+      },
+      "styles": {
+        "maxWidth": "900px",
+        "margin": "0 auto",
+        "padding": "80px 20px",
+        "backgroundColor": "#ffffff"
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-01-30",
+    "tags": ["about", "mission", "stats"]
+  }
+}

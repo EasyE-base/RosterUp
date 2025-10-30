@@ -1,0 +1,53 @@
+{
+  "id": "schedule-sports-01",
+  "name": "Schedule Section",
+  "description": "Display upcoming games and events in a clean table format",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "Upcoming Games",
+      "section_type": "schedule",
+      "content": {
+        "title": "Upcoming Games & Events",
+        "subtitle": "Check out our schedule",
+        "events": [
+          {
+            "date": "2025-05-10",
+            "time": "2:00 PM",
+            "opponent": "Eagles",
+            "location": "Main Field",
+            "type": "Home Game"
+          },
+          {
+            "date": "2025-05-17",
+            "time": "4:30 PM",
+            "opponent": "Tigers",
+            "location": "Central Park",
+            "type": "Away Game"
+          },
+          {
+            "date": "2025-05-24",
+            "time": "1:00 PM",
+            "opponent": "Warriors",
+            "location": "Main Field",
+            "type": "Home Game"
+          }
+        ],
+        "cta_text": "View Full Schedule",
+        "cta_link": "/schedule"
+      },
+      "styles": {
+        "padding": "80px 20px",
+        "backgroundColor": "#F8F9FA",
+        "maxWidth": "1200px",
+        "margin": "0 auto"
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-01-30",
+    "tags": ["schedule", "games", "events"]
+  }
+}

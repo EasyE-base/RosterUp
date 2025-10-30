@@ -1,0 +1,37 @@
+{
+  "id": "hero-sports-01",
+  "name": "Sports Hero Section",
+  "description": "Eye-catching hero section with team branding and call-to-action",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "Hero Banner",
+      "section_type": "hero",
+      "content": {
+        "heading": "Welcome to {{org_name}}",
+        "subheading": "Building Champions On and Off the Field",
+        "cta_text": "Join the Team",
+        "cta_link": "/tryouts",
+        "background_image": "/templates/assets/hero-bg.jpg",
+        "background_overlay": "rgba(0, 31, 63, 0.7)"
+      },
+      "styles": {
+        "background": "linear-gradient(180deg, #001F3F 0%, #0074D9 100%)",
+        "textAlign": "center",
+        "padding": "120px 20px",
+        "minHeight": "500px",
+        "display": "flex",
+        "flexDirection": "column",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "color": "#ffffff"
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-01-30",
+    "tags": ["hero", "sports", "landing"]
+  }
+}
