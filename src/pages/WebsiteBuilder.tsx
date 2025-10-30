@@ -19,6 +19,7 @@ import {
   Code,
   X,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, OrganizationWebsite, WebsitePage } from '../lib/supabase';
@@ -311,6 +312,56 @@ export default function WebsiteBuilder() {
     }
   };
 
+  const handleDeleteWebsite = async () => {
+    if (!website || !organization) return;
+
+    const confirmDelete = window.confirm(
+      'Are you sure you want to delete your entire website? This will delete all pages, sections, and content. This action cannot be undone.'
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      setSaving(true);
+
+      // Delete all content blocks first
+      await supabase
+        .from('website_content_blocks')
+        .delete()
+        .in('page_id', pages.map(p => p.id));
+
+      // Delete all sections
+      await supabase
+        .from('website_sections')
+        .delete()
+        .in('page_id', pages.map(p => p.id));
+
+      // Delete all pages
+      await supabase
+        .from('website_pages')
+        .delete()
+        .eq('website_id', website.id);
+
+      // Delete the website itself
+      await supabase
+        .from('organization_websites')
+        .delete()
+        .eq('id', website.id);
+
+      // Reset state
+      setWebsite(null);
+      setPages([]);
+      setShowCreateWebsite(true);
+
+      alert('Website deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting website:', error);
+      alert('Failed to delete website. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const blockTypes = [
     { type: 'hero', icon: Layout, label: 'Hero Section', description: 'Large banner with title and CTA' },
     { type: 'text', icon: Type, label: 'Text Block', description: 'Rich text content' },
@@ -594,6 +645,17 @@ export default function WebsiteBuilder() {
                     <span>Domain Settings</span>
                   </div>
                   <span className="text-slate-500">→</span>
+                </button>
+                <button
+                  onClick={handleDeleteWebsite}
+                  disabled={saving}
+                  className="w-full px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-left flex items-center justify-between disabled:opacity-50"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Trash2 className="w-5 h-5" />
+                    <span>Delete Website</span>
+                  </div>
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 </button>
               </div>
             </div>
