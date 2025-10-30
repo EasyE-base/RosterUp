@@ -66,29 +66,33 @@ export function replaceTemplateVariables(
 }
 
 /**
- * Load template from Supabase Storage
+ * Load template from public/templates directory
  */
-export async function loadTemplate(templateId: string): Promise<Template | null> {
+export async function loadTemplate(templateFile: string): Promise<Template> {
   try {
-    const response = await fetch(`/templates/${templateId}.json`);
-    if (!response.ok) return null;
+    const response = await fetch(`/templates/${templateFile}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load template: ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
-    console.error(`Failed to load template ${templateId}:`, error);
-    return null;
+    console.error(`Failed to load template ${templateFile}:`, error);
+    throw error;
   }
 }
 
 /**
  * Load template manifest
  */
-export async function loadTemplateManifest(): Promise<TemplateManifest | null> {
+export async function loadTemplateManifest(): Promise<TemplateManifest> {
   try {
     const response = await fetch('/templates/manifest.json');
-    if (!response.ok) return null;
+    if (!response.ok) {
+      throw new Error(`Failed to load manifest: ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Failed to load template manifest:', error);
-    return null;
+    throw error;
   }
 }

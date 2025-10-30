@@ -18,11 +18,14 @@ import {
   Palette,
   Code,
   X,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, OrganizationWebsite, WebsitePage } from '../lib/supabase';
 import { useScreenSize } from '../hooks/useScreenSize';
 import MobileBlocker from '../components/website-builder/MobileBlocker';
+import TemplateSelector from '../components/website-builder/TemplateSelector';
+import { Template, replaceTemplateVariables } from '../lib/templates';
 
 export default function WebsiteBuilder() {
   const { organization } = useAuth();
@@ -34,6 +37,7 @@ export default function WebsiteBuilder() {
   const [pages, setPages] = useState<WebsitePage[]>([]);
   const [showCreateWebsite, setShowCreateWebsite] = useState(false);
   const [showCreatePage, setShowCreatePage] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [subdomain, setSubdomain] = useState('');
   const [error, setError] = useState('');
   const [newPageTitle, setNewPageTitle] = useState('');
@@ -201,6 +205,107 @@ export default function WebsiteBuilder() {
     } catch (error) {
       console.error('Error creating page:', error);
       setError('Failed to create page. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTemplateSelect = async (template: Template) => {
+    if (!website || !organization) return;
+
+    try {
+      setSaving(true);
+      setError('');
+
+      // Replace template variables with organization data
+      const variables = {
+        org_name: organization.name,
+        org_domain: organization.website || `${website.subdomain}.rosterup.com`,
+        org_slug: organization.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      };
+
+      // Create a page for this template
+      const slug = template.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const pageTitle = template.name;
+
+      const { data: newPage, error: pageError } = await supabase
+        .from('website_pages')
+        .insert({
+          website_id: website.id,
+          title: pageTitle,
+          slug: slug,
+          is_home: pages.length === 0, // Make it home page if it's the first one
+          is_published: false,
+          order_index: pages.length,
+        })
+        .select()
+        .single();
+
+      if (pageError) throw pageError;
+
+      // Insert sections for each template section
+      for (let i = 0; i < template.sections.length; i++) {
+        const section = template.sections[i];
+
+        // Replace variables in content
+        const processedContent = replaceTemplateVariables(section.content, variables);
+
+        const { error: sectionError } = await supabase
+          .from('website_sections')
+          .insert({
+            page_id: newPage.id,
+            name: section.name,
+            section_type: section.section_type as any, // Type assertion for DB enum
+            full_width: true,
+            order_index: i,
+            styles: section.styles || {},
+            background_color: section.styles?.backgroundColor,
+            padding_top: section.styles?.paddingTop || section.styles?.padding,
+            padding_bottom: section.styles?.paddingBottom || section.styles?.padding,
+            padding_left: section.styles?.paddingLeft || section.styles?.padding,
+            padding_right: section.styles?.paddingRight || section.styles?.padding,
+            max_width: section.styles?.maxWidth,
+          });
+
+        if (sectionError) {
+          console.error('Error creating section:', sectionError);
+          throw sectionError;
+        }
+
+        // Create content blocks for the section's content
+        // For now, we'll store the entire content as a single block
+        // In the future, this could be parsed into multiple blocks
+        const { error: blockError } = await supabase
+          .from('website_content_blocks')
+          .insert({
+            page_id: newPage.id,
+            block_type: section.section_type,
+            content: processedContent,
+            styles: section.styles || {},
+            visibility: {
+              desktop: true,
+              tablet: true,
+              mobile: true,
+            },
+            order_index: i,
+          });
+
+        if (blockError) {
+          console.error('Error creating content block:', blockError);
+          // Don't throw here, as sections are more important
+        }
+      }
+
+      // Reload pages
+      await loadPages(website.id);
+
+      // Navigate to the new page
+      if (newPage) {
+        navigate(`/website-builder/page/${newPage.id}`);
+      }
+    } catch (error) {
+      console.error('Error importing template:', error);
+      throw new Error('Failed to import template. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -374,13 +479,22 @@ export default function WebsiteBuilder() {
             <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-white">Pages</h2>
-                <button
-                  onClick={() => setShowCreatePage(true)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Page</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowTemplateSelector(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center space-x-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Use Template</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCreatePage(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Page</span>
+                  </button>
+                </div>
               </div>
 
               {pages.length === 0 ? (
@@ -583,6 +697,14 @@ export default function WebsiteBuilder() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <TemplateSelector
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplateSelector(false)}
+        />
       )}
     </div>
   );
