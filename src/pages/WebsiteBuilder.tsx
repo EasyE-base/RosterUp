@@ -23,7 +23,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, OrganizationWebsite, WebsitePage } from '../lib/supabase';
 import { useScreenSize } from '../hooks/useScreenSize';
 import MobileBlocker from '../components/website-builder/MobileBlocker';
-import WebsiteImporter from '../components/website-builder/WebsiteImporter';
 
 export default function WebsiteBuilder() {
   const { organization } = useAuth();
@@ -35,7 +34,6 @@ export default function WebsiteBuilder() {
   const [pages, setPages] = useState<WebsitePage[]>([]);
   const [showCreateWebsite, setShowCreateWebsite] = useState(false);
   const [showCreatePage, setShowCreatePage] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
   const [subdomain, setSubdomain] = useState('');
   const [error, setError] = useState('');
   const [newPageTitle, setNewPageTitle] = useState('');
@@ -315,50 +313,10 @@ export default function WebsiteBuilder() {
                     </>
                   )}
                 </button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-700"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-slate-900 text-slate-400">or</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    console.log('Import button clicked! subdomain:', subdomain);
-                    if (!subdomain) {
-                      console.log('No subdomain, showing error');
-                      setError('Please enter a subdomain first');
-                      return;
-                    }
-                    console.log('Setting showImporter to true');
-                    setShowImporter(true);
-                  }}
-                  className="w-full py-3 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg hover:bg-slate-700 hover:border-blue-500/50 transition-all flex items-center justify-center space-x-2"
-                >
-                  <Globe className="w-5 h-5" />
-                  <span>Import Existing Website</span>
-                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Website Importer Modal */}
-        {showImporter && organization && (
-          <WebsiteImporter
-            isOpen={showImporter}
-            onClose={() => setShowImporter(false)}
-            onComplete={(websiteId) => {
-              setShowImporter(false);
-              navigate(`/website-builder`);
-            }}
-            organizationId={organization.id}
-            subdomain={subdomain}
-          />
-        )}
       </>
     );
   }
@@ -502,16 +460,6 @@ export default function WebsiteBuilder() {
                 <h2 className="text-xl font-bold text-white">Website Settings</h2>
               </div>
               <div className="space-y-4">
-                <button
-                  onClick={() => setShowImporter(true)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-left flex items-center justify-between"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Globe className="w-5 h-5" />
-                    <span className="font-medium">Import Website</span>
-                  </div>
-                  <span>→</span>
-                </button>
                 <button className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all text-left flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Palette className="w-5 h-5 text-slate-400" />
@@ -635,20 +583,6 @@ export default function WebsiteBuilder() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Website Importer Modal */}
-      {showImporter && organization && website && (
-        <WebsiteImporter
-          isOpen={showImporter}
-          onClose={() => setShowImporter(false)}
-          onComplete={(websiteId) => {
-            setShowImporter(false);
-            loadWebsite();
-          }}
-          organizationId={organization.id}
-          subdomain={website.subdomain}
-        />
       )}
     </div>
   );

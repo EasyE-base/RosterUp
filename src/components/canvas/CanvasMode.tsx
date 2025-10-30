@@ -1,7 +1,6 @@
 /**
  * Canvas Mode - Main Component
- * V2.0: Hybrid Canvas with cloned HTML support
- * Combines CanvasSurface, CanvasOverlay, and HybridCanvasLoader
+ * Combines CanvasSurface, CanvasOverlay for visual page editing
  * Provides full canvas editing experience with flow-to-absolute unlock
  */
 
@@ -14,7 +13,6 @@ import { ElementContextBar } from './ElementContextBar';
 import { SnapshotDebugTool } from '../debug/SnapshotDebugTool';
 import { CanvasE2ETest } from '../debug/CanvasE2ETest';
 import { MediaOrganizer } from '../media/MediaOrganizer';
-import { HybridCanvasLoader } from './HybridCanvasLoader';
 import { useCommandBus } from '@/stores/commandBus';
 import { iframeSyncManager } from '@/lib/iframeSyncManager';
 import { registry } from '@/lib/selectorRegistry';
@@ -34,11 +32,8 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
   const internalIframeRef = useRef<HTMLIFrameElement>(null);
   const iframeRef = externalIframeRef || internalIframeRef;
 
-  // V2.0: Hybrid mode state
   const editorMode = getEditorMode();
-  const [hybridHTML, setHybridHTML] = useState<string>('');
-  const [isHybridLoading, setIsHybridLoading] = useState(false);
-  const [hybridLoadError, setHybridLoadError] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   const [selectedElement, setSelectedElement] = useState<CanvasElement | null>(null);
   const [hoveredElement, setHoveredElement] = useState<CanvasElement | null>(null);
@@ -49,53 +44,6 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
   const [viewportSize, setViewportSize] = useState({ width: 1440, height: 900 });
   const [showE2EPanel, setShowE2EPanel] = useState(false);
 
-  /**
-   * V2.0: Hybrid loading - fetch clone_html and hydrate state
-   */
-  const handleHybridLoad = useCallback((html: string, elements: Map<string, CanvasElement>) => {
-    performance.mark('canvas-hydrate-start');
-
-    setHybridHTML(html);
-    setIsHybridLoading(false);
-
-    // Hydrate commandBus with flow elements
-    const elementArray = Array.from(elements.values());
-    console.log(`🔄 Hydrating commandBus with ${elementArray.length} flow elements`);
-
-    // Dispatch insert commands for each flow element
-    // This populates commandBus.elements Map for selection/unlock
-    elementArray.forEach((element) => {
-      commandBus.dispatch({
-        type: 'insert',
-        payload: { element },
-        context: {
-          timestamp: element.createdAt || Date.now(),
-          source: 'hydration',
-          description: `Hydrated flow element from clone_html`,
-        },
-      });
-    });
-
-    console.log(`✅ Dispatched ${elementArray.length} insert commands to commandBus`);
-
-    performance.mark('canvas-hydrate-end');
-    performance.measure('canvas-hydrate', 'canvas-hydrate-start', 'canvas-hydrate-end');
-
-    const measure = performance.getEntriesByName('canvas-hydrate')[0];
-    const duration = measure?.duration || 0;
-
-    console.log(`✅ Canvas hydrated in ${duration.toFixed(2)}ms`);
-
-    performance.clearMarks('canvas-hydrate-start');
-    performance.clearMarks('canvas-hydrate-end');
-    performance.clearMeasures('canvas-hydrate');
-  }, [commandBus]);
-
-  const handleHybridError = useCallback((error: string) => {
-    setHybridLoadError(error);
-    setIsHybridLoading(false);
-    console.error('❌ Hybrid load failed:', error);
-  }, []);
 
   /**
    * Load command history from IndexedDB on mount
@@ -140,7 +88,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
       iframeSyncManager.stop();
       iframe.removeEventListener('load', initSync);
     };
-  }, [iframeRef, editorMode, hybridHTML]);
+  }, [iframeRef, editorMode, htmlContent]);
 
   /**
    * Update viewport size and breakpoint when iframe resizes
@@ -557,7 +505,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
    * CSS Inspection - Debug why iframe isn't visible
    */
   useEffect(() => {
-    if (!iframeRef.current || !hybridHTML) return;
+    if (!iframeRef.current || !htmlContent) return;
 
     // Wait for iframe to fully load
     const timer = setTimeout(() => {
@@ -604,73 +552,60 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [hybridHTML, iframeRef]);
+  }, [htmlContent, iframeRef]);
+
+  /**
+   * Create blob URL from htmlContent for iframe rendering
+   */
+  useEffect(() => {
+    if (!htmlContent) {
+      setBlobUrl(null);
+      return;
+    }
+
+    const effectiveHTML = htmlContent;
+
+    // Create blob from HTML
+    const blob = new Blob([effectiveHTML], { type: 'text/html; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    console.log('📦 Created blob URL for iframe:', {
+      blobUrl: url,
+      htmlLength: effectiveHTML.length,
+      hasStyleTags: effectiveHTML.includes('<style>'),
+      styleTagCount: (effectiveHTML.match(/<style/gi) || []).length,
+      hasLinkTags: effectiveHTML.includes('<link'),
+      linkTagCount: (effectiveHTML.match(/<link/gi) || []).length,
+      preview: effectiveHTML.substring(0, 2000), // Increase to see more structure
+    });
+
+    setBlobUrl(url);
+
+    // Cleanup: revoke blob URL when component unmounts or HTML changes
+    return () => {
+      URL.revokeObjectURL(url);
+      console.log('🧹 Revoked blob URL:', url);
+    };
+  }, [editorMode, htmlContent, htmlContent, pageId]); // Re-create when HTML or page changes
 
   if (!enabled) return null;
 
   // V2.0: Determine HTML source (hybrid vs legacy)
-  const effectiveHTML = editorMode === 'canvas' && hybridHTML ? hybridHTML : htmlContent;
+  const effectiveHTML = editorMode === 'canvas' && htmlContent ? htmlContent : htmlContent;
 
   // Debug logging
   console.log('🎨 CanvasMode render:', {
     editorMode,
-    hasHybridHTML: !!hybridHTML,
-    hybridHTMLLength: hybridHTML?.length || 0,
+    hasHybridHTML: !!htmlContent,
+    htmlContentLength: htmlContent?.length || 0,
     htmlContentLength: htmlContent?.length || 0,
     effectiveHTMLLength: effectiveHTML?.length || 0,
-    usingHybrid: editorMode === 'canvas' && !!hybridHTML,
+    usingHybrid: editorMode === 'canvas' && !!htmlContent,
   });
 
   return (
     <div className="canvas-mode-container">
-      {/* V2.0: Hybrid Canvas Loader - Non-rendering component */}
-      {editorMode === 'canvas' && pageId && (
-        <HybridCanvasLoader
-          pageId={pageId}
-          onLoad={handleHybridLoad}
-          onError={handleHybridError}
-        />
-      )}
-
-      {/* V2.0: Loading state */}
-      {isHybridLoading && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '20px 40px',
-          borderRadius: 8,
-          fontSize: 16,
-          fontWeight: 500,
-          zIndex: 10001,
-        }}>
-          Loading cloned HTML...
-        </div>
-      )}
-
-      {/* V2.0: Error state */}
-      {hybridLoadError && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: '#ef4444',
-          color: 'white',
-          padding: '20px 40px',
-          borderRadius: 8,
-          fontSize: 16,
-          fontWeight: 500,
-          zIndex: 10001,
-        }}>
-          Error: {hybridLoadError}
-        </div>
-      )}
-
-      {/* V2.0: Iframe rendering with sandbox security */}
+      {/* Iframe rendering */}
       <div style={{
         position: 'relative',
         width: '100%',
@@ -678,8 +613,9 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
         overflow: 'auto',
       }}>
         <iframe
+          key={pageId} // Force remount when page changes
           ref={iframeRef}
-          srcDoc={effectiveHTML}
+          src={blobUrl || 'about:blank'} // Use blob URL instead of srcDoc to prevent external fetches
           sandbox="allow-same-origin allow-scripts" // V2.0 RC1: Enable functionality, defer strict security to v2.1.0
           title="Canvas Mode Preview"
           style={{
@@ -689,7 +625,7 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
             display: 'block',
           }}
           onLoad={() => {
-            console.log('🔓 Iframe loaded with relaxed sandbox (allow-same-origin allow-scripts) for RC1 functionality');
+            console.log('🔓 Iframe loaded with blob URL (fully offline, no external fetches)');
           }}
         />
       </div>
