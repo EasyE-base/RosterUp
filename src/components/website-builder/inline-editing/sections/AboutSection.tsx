@@ -25,7 +25,7 @@ export default function AboutSection({
   };
 
   const updateStat = (index: number, field: 'label' | 'value', value: string) => {
-    const newStats = [...content.stats];
+    const newStats = [...(content.stats || [])];
     newStats[index] = { ...newStats[index], [field]: value };
     updateField('stats', newStats);
   };
@@ -87,7 +87,7 @@ export default function AboutSection({
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-8 pt-8">
-          {content.stats.map((stat, index) => (
+          {(content.stats || []).map((stat, index) => (
             <div key={index} className="text-center">
               <InlineEditor
                 value={stat.value}

@@ -191,7 +191,24 @@ function WebsiteBuilderEditorContent() {
       if (sectionsError && sectionsError.code !== 'PGRST116') { // Ignore not found errors
         console.error('Error loading sections:', sectionsError);
       }
-      loadSections((sectionsData as any[]) || []);
+
+      const sections = (sectionsData as any[]) || [];
+      loadSections(sections);
+
+      // Detect template mode immediately after loading sections
+      const hasTemplateSections = sections.some((s: any) => s.section_type);
+      console.log('🔍 Direct template detection:', {
+        sectionsCount: sections.length,
+        hasTemplateSections,
+        sectionTypes: sections.map((s: any) => s.section_type)
+      });
+
+      if (hasTemplateSections) {
+        console.log('✅ Template mode activated with', sections.length, 'sections');
+        setIsTemplatePage(true);
+        setTemplateSections(sections);
+        setTemplateEditMode(true);
+      }
 
       const { data: blocksData, error: blocksError } = await supabase
         .from('website_content_blocks')
@@ -212,9 +229,16 @@ function WebsiteBuilderEditorContent() {
 
   // Detect template mode based on section_type field
   useEffect(() => {
+    console.log('🔍 Template detection:', {
+      editorSections,
+      count: editorSections?.length,
+      hasSectionType: editorSections?.some((s: any) => s.section_type),
+      sectionTypes: editorSections?.map((s: any) => s.section_type)
+    });
     const hasTemplateSections = editorSections?.some((s: any) => s.section_type);
     setIsTemplatePage(Boolean(hasTemplateSections));
     if (hasTemplateSections) {
+      console.log('✅ Template mode activated with', editorSections.length, 'sections');
       setTemplateSections(editorSections);
       setTemplateEditMode(true);
     }
@@ -533,8 +557,14 @@ function WebsiteBuilderEditorContent() {
   // Check if Canvas Mode is enabled via feature flag
   const canvasModeEnabled = isFeatureEnabled('canvasMode');
 
-  // V2.0: If Canvas Mode is enabled, render it with pageId for hybrid loading
-  if (canvasModeEnabled) {
+  // V2.0: Template Mode takes priority - if page has template sections, use inline editor
+  if (isTemplatePage && templateSections.length > 0) {
+    console.log('🎨 Rendering Template Mode for', templateSections.length, 'sections');
+    // Template Mode will be rendered below in the main return statement
+    // Don't return CanvasMode for template pages
+  } else if (canvasModeEnabled) {
+    // V2.0: If Canvas Mode is enabled and NOT a template page, render it
+    console.log('🎨 Rendering Canvas Mode');
     return <CanvasMode pageId={pageId} />;
   }
 
