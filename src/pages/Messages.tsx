@@ -310,17 +310,17 @@ export default function Messages() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20">
+    <div className="min-h-screen bg-[rgb(247,247,249)] pt-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl overflow-hidden h-[calc(100vh-12rem)]">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-[calc(100vh-12rem)] shadow-sm">
           <div className="flex h-full">
-            <div className="w-full md:w-80 lg:w-96 border-r border-slate-800/50 flex flex-col">
-              <div className="p-4 border-b border-slate-800/50">
+            <div className="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col">
+              <div className="p-4 border-b border-slate-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white">Messages</h2>
+                  <h2 className="text-xl font-bold text-[rgb(29,29,31)]">Messages</h2>
                   <button
                     onClick={() => setShowNewMessageModal(true)}
-                    className="p-2 bg-blue-500/20 border border-blue-500/50 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-all"
+                    className="p-2 bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)] rounded-lg hover:bg-[rgb(0,113,227)]/20 transition-all"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -330,15 +330,15 @@ export default function Messages() {
               <div className="flex-1 overflow-y-auto">
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
                   </div>
                 ) : conversations.length === 0 ? (
                   <div className="p-8 text-center">
-                    <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400 text-sm">No conversations yet</p>
+                    <Users className="w-12 h-12 text-[rgb(134,142,150)] mx-auto mb-3" />
+                    <p className="text-[rgb(134,142,150)] text-sm">No conversations yet</p>
                     <button
                       onClick={() => setShowNewMessageModal(true)}
-                      className="mt-4 px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-all"
+                      className="mt-4 px-4 py-2 bg-[rgb(0,113,227)] text-white text-sm rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow-md"
                     >
                       Start a conversation
                     </button>
@@ -348,10 +348,10 @@ export default function Messages() {
                     <div
                       key={conversation.id}
                       onClick={() => setSelectedConversation(conversation.id)}
-                      className={`p-4 border-b border-slate-800/50 cursor-pointer transition-all ${
+                      className={`p-4 border-b border-slate-200 cursor-pointer transition-all ${
                         selectedConversation === conversation.id
-                          ? 'bg-blue-500/10 border-l-4 border-l-blue-500'
-                          : 'hover:bg-slate-800/30'
+                          ? 'bg-[rgb(0,113,227)]/5 border-l-4 border-l-[rgb(0,113,227)]'
+                          : 'hover:bg-[rgb(247,247,249)]'
                       }`}
                     >
                       <div className="flex items-start space-x-3">
@@ -360,21 +360,21 @@ export default function Messages() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h3 className="text-white font-semibold truncate">
+                            <h3 className="text-[rgb(29,29,31)] font-semibold truncate">
                               {conversation.other_user.full_name}
                             </h3>
                             {conversation.last_message && (
-                              <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
+                              <span className="text-xs text-[rgb(134,142,150)] flex-shrink-0 ml-2">
                                 {formatTime(conversation.last_message.created_at)}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center justify-between">
-                            <p className="text-sm text-slate-400 truncate">
+                            <p className="text-sm text-[rgb(134,142,150)] truncate">
                               {conversation.last_message?.content || 'No messages yet'}
                             </p>
                             {conversation.unread_count > 0 && (
-                              <span className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full flex-shrink-0">
+                              <span className="ml-2 px-2 py-0.5 bg-[rgb(0,113,227)] text-white text-xs font-semibold rounded-full flex-shrink-0">
                                 {conversation.unread_count}
                               </span>
                             )}
@@ -390,23 +390,23 @@ export default function Messages() {
             <div className="hidden md:flex flex-col flex-1">
               {selectedConversation && selectedConvData ? (
                 <>
-                  <div className="p-4 border-b border-slate-800/50 flex items-center justify-between">
+                  <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
                         {selectedConvData.other_user.full_name.charAt(0)}
                       </div>
                       <div>
-                        <h3 className="text-white font-semibold">
+                        <h3 className="text-[rgb(29,29,31)] font-semibold">
                           {selectedConvData.other_user.full_name}
                         </h3>
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-[rgb(134,142,150)]">
                           {selectedConvData.other_user.email}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[rgb(247,247,249)]">
                     {messages.map((message) => {
                       const isOwn = message.sender_id === user?.id;
                       return (
@@ -417,19 +417,21 @@ export default function Messages() {
                           <div
                             className={`max-w-md ${
                               isOwn
-                                ? 'bg-gradient-to-r from-blue-500 to-cyan-400'
-                                : 'bg-slate-800/50'
-                            } rounded-lg p-3`}
+                                ? 'bg-[rgb(0,113,227)] text-white'
+                                : 'bg-white border border-slate-200'
+                            } rounded-lg p-3 shadow-sm`}
                           >
                             {!isOwn && (
-                              <p className="text-xs font-semibold text-blue-400 mb-1">
+                              <p className="text-xs font-semibold text-[rgb(0,113,227)] mb-1">
                                 {message.sender.full_name}
                               </p>
                             )}
-                            <p className="text-white text-sm">{message.content}</p>
+                            <p className={`text-sm ${isOwn ? 'text-white' : 'text-[rgb(29,29,31)]'}`}>
+                              {message.content}
+                            </p>
                             <p
                               className={`text-xs mt-1 ${
-                                isOwn ? 'text-blue-100' : 'text-slate-400'
+                                isOwn ? 'text-blue-100' : 'text-[rgb(134,142,150)]'
                               }`}
                             >
                               {new Date(message.created_at).toLocaleTimeString([], {
@@ -444,15 +446,15 @@ export default function Messages() {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <div className="p-4 border-t border-slate-800/50">
+                  <div className="p-4 border-t border-slate-200 bg-white">
                     <div className="flex items-end space-x-2">
-                      <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-lg focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                      <div className="flex-1 bg-white border border-slate-200 rounded-lg focus-within:border-[rgb(0,113,227)] focus-within:ring-2 focus-within:ring-[rgb(0,113,227)]/20">
                         <textarea
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
                           placeholder="Type your message..."
                           rows={3}
-                          className="w-full px-4 py-3 bg-transparent text-white placeholder-slate-500 focus:outline-none resize-none"
+                          className="w-full px-4 py-3 bg-transparent text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none resize-none"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -464,7 +466,7 @@ export default function Messages() {
                       <button
                         onClick={handleSendMessage}
                         disabled={sending || !messageText.trim()}
-                        className="p-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-3 bg-[rgb(0,113,227)] text-white rounded-lg hover:bg-blue-600 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                       >
                         {sending ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
@@ -473,7 +475,7 @@ export default function Messages() {
                         )}
                       </button>
                     </div>
-                    <p className="text-xs text-slate-500 mt-2">
+                    <p className="text-xs text-[rgb(134,142,150)] mt-2">
                       Press Enter to send, Shift + Enter for new line
                     </p>
                   </div>
@@ -481,11 +483,11 @@ export default function Messages() {
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">
+                    <Users className="w-16 h-16 text-[rgb(134,142,150)] mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-[rgb(29,29,31)] mb-2">
                       Select a conversation
                     </h3>
-                    <p className="text-slate-400">
+                    <p className="text-[rgb(134,142,150)]">
                       Choose a conversation from the list to start messaging
                     </p>
                   </div>
@@ -498,9 +500,9 @@ export default function Messages() {
 
       {showNewMessageModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">New Message</h2>
+          <div className="bg-white border border-slate-200 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[rgb(29,29,31)]">New Message</h2>
               <button
                 onClick={() => {
                   setShowNewMessageModal(false);
@@ -508,7 +510,7 @@ export default function Messages() {
                   setUserSearchResults([]);
                   setError('');
                 }}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -516,32 +518,32 @@ export default function Messages() {
 
             <div className="p-6 space-y-6">
               {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-600 text-sm">{error}</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   Search for users
                 </label>
                 <div className="flex space-x-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchUsers()}
                       placeholder="Search by name or email..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                     />
                   </div>
                   <button
                     onClick={handleSearchUsers}
                     disabled={searching || !searchTerm.trim()}
-                    className="px-6 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
                   >
                     {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Search'}
                   </button>
@@ -550,24 +552,24 @@ export default function Messages() {
 
               {userSearchResults.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-white font-semibold">Search Results</h3>
+                  <h3 className="text-[rgb(29,29,31)] font-semibold">Search Results</h3>
                   {userSearchResults.map((user) => (
                     <div
                       key={user.id}
-                      className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 flex items-center justify-between"
+                      className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
                           {user.full_name.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-white font-semibold">{user.full_name}</p>
-                          <p className="text-sm text-slate-400">{user.email}</p>
+                          <p className="text-[rgb(29,29,31)] font-semibold">{user.full_name}</p>
+                          <p className="text-sm text-[rgb(134,142,150)]">{user.email}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleStartConversation(user.id)}
-                        className="px-4 py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
+                        className="px-4 py-2 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2 shadow-sm hover:shadow-md"
                       >
                         <Send className="w-4 h-4" />
                         <span>Message</span>

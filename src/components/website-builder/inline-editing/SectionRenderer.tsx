@@ -3,6 +3,10 @@ import HeroSection from './sections/HeroSection';
 import AboutSection from './sections/AboutSection';
 import ScheduleSection from './sections/ScheduleSection';
 import ContactSection from './sections/ContactSection';
+import NavigationCenterLogo from './sections/NavigationCenterLogo';
+import CommitmentsSection from './sections/CommitmentsSection';
+import GallerySection from './sections/GallerySection';
+import RosterSection from './sections/RosterSection';
 import { Trash2, GripVertical } from 'lucide-react';
 
 // Section component registry
@@ -11,6 +15,10 @@ const sectionRegistry: Record<string, React.ComponentType<any>> = {
   about: AboutSection,
   schedule: ScheduleSection,
   contact: ContactSection,
+  'navigation-center-logo': NavigationCenterLogo,
+  commitments: CommitmentsSection,
+  gallery: GallerySection,
+  roster: RosterSection,
 };
 
 interface SectionRendererProps {
@@ -18,6 +26,7 @@ interface SectionRendererProps {
   editMode: boolean;
   onUpdateSection: (sectionId: string, content: Record<string, any>) => void;
   onDeleteSection?: (sectionId: string) => void;
+  onSettingsClick?: (sectionId: string) => void;
   dragHandleProps?: any; // For drag-and-drop integration
 }
 
@@ -26,6 +35,7 @@ export default function SectionRenderer({
   editMode,
   onUpdateSection,
   onDeleteSection,
+  onSettingsClick,
   dragHandleProps,
 }: SectionRendererProps) {
   return (
@@ -86,12 +96,14 @@ export default function SectionRenderer({
               }`}
             >
               <SectionComponent
+                sectionId={section.id}
                 content={sectionContent}
                 styles={section.styles}
                 editMode={editMode}
                 onUpdate={(updatedContent: Record<string, any>) => {
                   onUpdateSection(section.id, updatedContent);
                 }}
+                onSettings={() => onSettingsClick?.(section.id)}
               />
             </div>
           </div>

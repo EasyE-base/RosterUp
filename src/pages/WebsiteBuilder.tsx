@@ -142,6 +142,9 @@ export default function WebsiteBuilder() {
       setWebsite(websiteData as OrganizationWebsite);
       setShowCreateWebsite(false);
       await loadPages(websiteData.id);
+
+      // Automatically show template selector for new websites
+      setShowTemplateSelector(true);
     } catch (error) {
       console.error('Error creating website:', error);
       setError('Failed to create website. Please try again.');
@@ -226,8 +229,23 @@ export default function WebsiteBuilder() {
       };
 
       // Create a page for this template
-      const slug = template.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // Use crypto-enhanced slug for collision-proof uniqueness
+      const baseSlug = template.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, ''); // trim leading/trailing dashes
+
+      const timestamp = Date.now();
+
+      // Generate 8-character short ID using native crypto API with fallback
+      const shortId = (globalThis.crypto?.randomUUID?.() ?? `${timestamp}`)
+        .replace(/-/g, '')
+        .slice(0, 8);
+
+      const slug = `${baseSlug}-${timestamp}-${shortId}`;
       const pageTitle = template.name;
+
+      console.log(`📝 Creating page: "${pageTitle}" with slug: ${slug} (base: ${baseSlug})`);
 
       const { data: newPage, error: pageError } = await supabase
         .from('website_pages')
@@ -235,6 +253,7 @@ export default function WebsiteBuilder() {
           website_id: website.id,
           title: pageTitle,
           slug: slug,
+          base_slug: baseSlug,
           is_home: pages.length === 0, // Make it home page if it's the first one
           is_published: false,
           order_index: pages.length,
@@ -242,11 +261,20 @@ export default function WebsiteBuilder() {
         .select()
         .single();
 
-      if (pageError) throw pageError;
+      if (pageError) {
+        console.error('❌ Page creation failed:', pageError);
+        throw pageError;
+      }
+
+      console.log(`✅ Page created successfully with ID: ${newPage.id}`);
+
+      console.log(`📝 Template import: Page created with ID ${newPage.id}, inserting ${template.sections.length} sections...`);
 
       // Insert sections for each template section
       for (let i = 0; i < template.sections.length; i++) {
         const section = template.sections[i];
+
+        console.log(`  → Section ${i + 1}/${template.sections.length}: "${section.name}" (type: ${section.section_type})`);
 
         // Replace variables in content
         const processedContent = replaceTemplateVariables(section.content, variables);
@@ -259,7 +287,7 @@ export default function WebsiteBuilder() {
             section_type: section.section_type as any, // Type assertion for DB enum
             full_width: true,
             order_index: i,
-            styles: section.styles || {},
+            styles: { ...section.styles, content: processedContent },
             background_color: section.styles?.backgroundColor,
             padding_top: section.styles?.paddingTop || section.styles?.padding,
             padding_bottom: section.styles?.paddingBottom || section.styles?.padding,
@@ -269,8 +297,11 @@ export default function WebsiteBuilder() {
           });
 
         if (sectionError) {
-          console.error('Error creating section:', sectionError);
+          console.error(`  ❌ Section insert FAILED:`, sectionError);
+          console.error(`  Section data:`, { name: section.name, type: section.section_type, order: i });
           throw sectionError;
+        } else {
+          console.log(`  ✅ Section inserted successfully`);
         }
 
         // Create content blocks for the section's content
@@ -296,6 +327,8 @@ export default function WebsiteBuilder() {
           // Don't throw here, as sections are more important
         }
       }
+
+      console.log(`✅ Template import complete: ${template.sections.length} sections created for page ${newPage.id}`);
 
       // Reload pages
       await loadPages(website.id);
@@ -374,8 +407,8 @@ export default function WebsiteBuilder() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="flex items-center justify-center min-h-screen bg-[rgb(247,247,249)]">
+        <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
       </div>
     );
   }
@@ -388,22 +421,22 @@ export default function WebsiteBuilder() {
   if (showCreateWebsite) {
     return (
       <>
-        <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+        <div className="min-h-screen bg-[rgb(247,247,249)] pt-32 pb-12">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-8">
+            <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-[rgb(0,113,227)] rounded-full flex items-center justify-center mx-auto mb-4">
                   <Globe className="w-8 h-8 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold text-white mb-2">Create Your Website</h1>
-                <p className="text-slate-400">
+                <h1 className="text-3xl font-bold text-[rgb(29,29,31)] mb-2">Create Your Website</h1>
+                <p className="text-[rgb(134,142,150)]">
                   Build a professional website for your organization
                 </p>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                     Choose Your Subdomain
                   </label>
                   <div className="flex items-center">
@@ -412,41 +445,41 @@ export default function WebsiteBuilder() {
                       value={subdomain}
                       onChange={(e) => setSubdomain(e.target.value)}
                       placeholder="your-organization"
-                      className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-l-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-l-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                     />
-                    <div className="px-4 py-3 bg-slate-800 border border-slate-700 border-l-0 rounded-r-lg text-slate-400">
+                    <div className="px-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 border-l-0 rounded-r-lg text-[rgb(134,142,150)]">
                       .rosterup.com
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500 mt-2">
+                  <p className="text-sm text-[rgb(134,142,150)] mt-2">
                     This will be your public website URL
                   </p>
                   {error && (
-                    <p className="text-sm text-red-400 mt-2">{error}</p>
+                    <p className="text-sm text-red-600 mt-2">{error}</p>
                   )}
                 </div>
 
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                  <h3 className="text-white font-semibold mb-2">What's included:</h3>
-                  <ul className="space-y-2 text-sm text-slate-300">
+                <div className="bg-[rgb(0,113,227)]/5 border border-[rgb(0,113,227)]/20 rounded-lg p-4">
+                  <h3 className="text-[rgb(29,29,31)] font-semibold mb-2">What's included:</h3>
+                  <ul className="space-y-2 text-sm text-[rgb(29,29,31)]">
                     <li className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-[rgb(0,113,227)] rounded-full"></div>
                       <span>Drag-and-drop page builder</span>
                     </li>
                     <li className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-[rgb(0,113,227)] rounded-full"></div>
                       <span>Multiple page templates</span>
                     </li>
                     <li className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-[rgb(0,113,227)] rounded-full"></div>
                       <span>Auto-sync team rosters and schedules</span>
                     </li>
                     <li className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-[rgb(0,113,227)] rounded-full"></div>
                       <span>Custom branding and colors</span>
                     </li>
                     <li className="flex items-center space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-[rgb(0,113,227)] rounded-full"></div>
                       <span>Mobile-responsive design</span>
                     </li>
                   </ul>
@@ -455,7 +488,7 @@ export default function WebsiteBuilder() {
                 <button
                   onClick={createWebsite}
                   disabled={!subdomain || saving}
-                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="w-full py-3 bg-[rgb(0,113,227)] text-white font-semibold rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-sm hover:shadow-md"
                 >
                   {saving ? (
                     <>
@@ -478,12 +511,12 @@ export default function WebsiteBuilder() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-[rgb(247,247,249)] pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-start mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Website Builder</h1>
-            <p className="text-slate-400">
+            <h1 className="text-4xl font-bold text-[rgb(29,29,31)] mb-2">Website Builder</h1>
+            <p className="text-[rgb(134,142,150)]">
               Create and manage your organization's website
             </p>
             {website && (
@@ -492,13 +525,13 @@ export default function WebsiteBuilder() {
                   href={`https://${website.subdomain}.rosterup.com`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 text-sm flex items-center space-x-1"
+                  className="text-[rgb(0,113,227)] hover:text-blue-600 text-sm flex items-center space-x-1"
                 >
                   <span>{website.subdomain}.rosterup.com</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>
                 {website.is_published && (
-                  <span className="px-3 py-1 bg-green-500/20 border border-green-500/50 text-green-400 text-xs font-medium rounded-full">
+                  <span className="px-3 py-1 bg-green-50 border border-green-200 text-green-600 text-xs font-medium rounded-full">
                     Published
                   </span>
                 )}
@@ -509,10 +542,10 @@ export default function WebsiteBuilder() {
             <button
               onClick={togglePublish}
               disabled={saving}
-              className={`px-5 py-3 font-medium rounded-lg transition-all flex items-center space-x-2 ${
+              className={`px-5 py-3 font-medium rounded-lg transition-all flex items-center space-x-2 shadow-sm ${
                 website?.is_published
-                  ? 'bg-slate-800/50 border border-slate-700 text-white hover:bg-slate-800'
-                  : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg hover:shadow-green-500/50'
+                  ? 'bg-white border border-slate-200 text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
+                  : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md'
               }`}
             >
               {saving ? (
@@ -527,20 +560,13 @@ export default function WebsiteBuilder() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Pages</h2>
+                <h2 className="text-xl font-bold text-[rgb(29,29,31)]">Pages</h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setShowTemplateSelector(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center space-x-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>Use Template</span>
-                  </button>
-                  <button
-                    onClick={() => setShowCreatePage(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
+                    className="px-4 py-2 bg-[rgb(0,113,227)] text-white rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2 shadow-sm hover:shadow-md"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Page</span>
@@ -550,8 +576,8 @@ export default function WebsiteBuilder() {
 
               {pages.length === 0 ? (
                 <div className="text-center py-12">
-                  <Layout className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No pages yet. Create your first page!</p>
+                  <Layout className="w-12 h-12 text-[rgb(134,142,150)] mx-auto mb-3" />
+                  <p className="text-[rgb(134,142,150)]">No pages yet. Create your first page!</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -559,28 +585,28 @@ export default function WebsiteBuilder() {
                     <button
                       key={page.id}
                       onClick={() => navigate(`/website-builder/page/${page.id}`)}
-                      className="w-full bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 hover:border-blue-500/50 transition-all text-left"
+                      className="w-full bg-[rgb(247,247,249)] rounded-lg p-4 border border-slate-200 hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all text-left"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <Layout className="w-5 h-5 text-slate-400" />
+                          <Layout className="w-5 h-5 text-[rgb(134,142,150)]" />
                           <div>
-                            <h3 className="text-white font-medium">{page.title}</h3>
-                            <p className="text-sm text-slate-400">/{page.slug || ''}</p>
+                            <h3 className="text-[rgb(29,29,31)] font-medium">{page.title}</h3>
+                            <p className="text-sm text-[rgb(134,142,150)]">/{page.slug || ''}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           {page.is_home && (
-                            <span className="px-2 py-1 bg-blue-500/20 border border-blue-500/50 text-blue-400 text-xs font-medium rounded">
+                            <span className="px-2 py-1 bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)] text-xs font-medium rounded">
                               Home
                             </span>
                           )}
                           {page.is_published ? (
-                            <span className="px-2 py-1 bg-green-500/20 border border-green-500/50 text-green-400 text-xs font-medium rounded">
+                            <span className="px-2 py-1 bg-green-50 border border-green-200 text-green-600 text-xs font-medium rounded">
                               Published
                             </span>
                           ) : (
-                            <span className="px-2 py-1 bg-slate-700 text-slate-400 text-xs font-medium rounded">
+                            <span className="px-2 py-1 bg-slate-200 text-[rgb(134,142,150)] text-xs font-medium rounded">
                               Draft
                             </span>
                           )}
@@ -592,23 +618,23 @@ export default function WebsiteBuilder() {
               )}
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-6">Available Content Blocks</h2>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6">Available Content Blocks</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {blockTypes.map((block) => {
                   const Icon = block.icon;
                   return (
                     <div
                       key={block.type}
-                      className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 hover:border-blue-500/50 transition-all cursor-pointer"
+                      className="bg-[rgb(247,247,249)] rounded-lg p-4 border border-slate-200 hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all cursor-pointer"
                     >
                       <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-[rgb(0,113,227)] rounded-lg flex items-center justify-center flex-shrink-0">
                           <Icon className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-white font-medium mb-1">{block.label}</h3>
-                          <p className="text-sm text-slate-400">{block.description}</p>
+                          <h3 className="text-[rgb(29,29,31)] font-medium mb-1">{block.label}</h3>
+                          <p className="text-sm text-[rgb(134,142,150)]">{block.description}</p>
                         </div>
                       </div>
                     </div>
@@ -619,37 +645,37 @@ export default function WebsiteBuilder() {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
               <div className="flex items-center space-x-2 mb-6">
-                <Settings className="w-5 h-5 text-slate-400" />
-                <h2 className="text-xl font-bold text-white">Website Settings</h2>
+                <Settings className="w-5 h-5 text-[rgb(134,142,150)]" />
+                <h2 className="text-xl font-bold text-[rgb(29,29,31)]">Website Settings</h2>
               </div>
               <div className="space-y-4">
-                <button className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all text-left flex items-center justify-between">
+                <button className="w-full px-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 text-[rgb(29,29,31)] rounded-lg hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all text-left flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Palette className="w-5 h-5 text-slate-400" />
+                    <Palette className="w-5 h-5 text-[rgb(134,142,150)]" />
                     <span>Theme & Colors</span>
                   </div>
-                  <span className="text-slate-500">→</span>
+                  <span className="text-[rgb(134,142,150)]">→</span>
                 </button>
-                <button className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all text-left flex items-center justify-between">
+                <button className="w-full px-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 text-[rgb(29,29,31)] rounded-lg hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all text-left flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Code className="w-5 h-5 text-slate-400" />
+                    <Code className="w-5 h-5 text-[rgb(134,142,150)]" />
                     <span>Custom CSS</span>
                   </div>
-                  <span className="text-slate-500">→</span>
+                  <span className="text-[rgb(134,142,150)]">→</span>
                 </button>
-                <button className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all text-left flex items-center justify-between">
+                <button className="w-full px-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 text-[rgb(29,29,31)] rounded-lg hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all text-left flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Globe className="w-5 h-5 text-slate-400" />
+                    <Globe className="w-5 h-5 text-[rgb(134,142,150)]" />
                     <span>Domain Settings</span>
                   </div>
-                  <span className="text-slate-500">→</span>
+                  <span className="text-[rgb(134,142,150)]">→</span>
                 </button>
                 <button
                   onClick={handleDeleteWebsite}
                   disabled={saving}
-                  className="w-full px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-left flex items-center justify-between disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition-all text-left flex items-center justify-between disabled:opacity-50"
                 >
                   <div className="flex items-center space-x-3">
                     <Trash2 className="w-5 h-5" />
@@ -660,12 +686,12 @@ export default function WebsiteBuilder() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-500/10 to-cyan-400/10 border border-blue-500/20 rounded-xl p-6">
-              <h3 className="text-white font-semibold mb-2">Need Help?</h3>
-              <p className="text-slate-300 text-sm mb-4">
+            <div className="bg-[rgb(0,113,227)]/5 border border-[rgb(0,113,227)]/20 rounded-xl p-6">
+              <h3 className="text-[rgb(29,29,31)] font-semibold mb-2">Need Help?</h3>
+              <p className="text-[rgb(134,142,150)] text-sm mb-4">
                 Check out our website builder guide to learn how to create stunning pages.
               </p>
-              <button className="text-blue-400 hover:text-blue-300 text-sm font-medium">
+              <button className="text-[rgb(0,113,227)] hover:text-blue-600 text-sm font-medium">
                 View Documentation →
               </button>
             </div>
@@ -676,9 +702,9 @@ export default function WebsiteBuilder() {
       {/* Create Page Modal */}
       {showCreatePage && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full">
+          <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-md w-full shadow-lg">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Create New Page</h2>
+              <h2 className="text-2xl font-bold text-[rgb(29,29,31)]">Create New Page</h2>
               <button
                 onClick={() => {
                   setShowCreatePage(false);
@@ -686,7 +712,7 @@ export default function WebsiteBuilder() {
                   setNewPageSlug('');
                   setError('');
                 }}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -694,7 +720,7 @@ export default function WebsiteBuilder() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   Page Title
                 </label>
                 <input
@@ -702,13 +728,13 @@ export default function WebsiteBuilder() {
                   value={newPageTitle}
                   onChange={(e) => setNewPageTitle(e.target.value)}
                   placeholder="About Us"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   URL Slug (optional)
                 </label>
                 <input
@@ -716,16 +742,16 @@ export default function WebsiteBuilder() {
                   value={newPageSlug}
                   onChange={(e) => setNewPageSlug(e.target.value)}
                   placeholder="about-us"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[rgb(134,142,150)] mt-1">
                   Leave blank to auto-generate from title
                 </p>
               </div>
 
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{error}</p>
                 </div>
               )}
 
@@ -737,14 +763,14 @@ export default function WebsiteBuilder() {
                     setNewPageSlug('');
                     setError('');
                   }}
-                  className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition-all"
+                  className="flex-1 px-4 py-3 bg-white border border-slate-200 text-[rgb(29,29,31)] rounded-lg hover:bg-[rgb(247,247,249)] transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={createPage}
                   disabled={!newPageTitle || saving}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-3 bg-[rgb(0,113,227)] text-white font-semibold rounded-lg hover:bg-blue-600 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-sm"
                 >
                   {saving ? (
                     <>

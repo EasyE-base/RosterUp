@@ -20,11 +20,14 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, WebsitePage, WebsiteContentBlock } from '../lib/supabase';
 import { WebsiteEditorProvider, useWebsiteEditor } from '../contexts/WebsiteEditorContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { SelectedElementProvider, useSelectedElement } from '../contexts/SelectedElementContext';
 import PageEditor from '../components/website-builder/PageEditor';
 import CloneViewer from '../components/website-builder/CloneViewer';
 import HtmlEditor from '../components/website-builder/HtmlEditor';
 import SmartEditMode from '../components/website-builder/SmartEditMode';
 import DesignSystemPanel from '../components/website-builder/DesignSystemPanel';
+import ElementPropertiesPanel from '../components/website-builder/ElementPropertiesPanel';
 import KeyboardShortcutsModal from '../components/website-builder/KeyboardShortcutsModal';
 import MobileBlocker from '../components/website-builder/MobileBlocker';
 import { CanvasMode } from '../components/canvas/CanvasMode';
@@ -36,9 +39,13 @@ import { useDebouncedCallback } from '../lib/debounce';
 import SectionRenderer from '../components/website-builder/inline-editing/SectionRenderer';
 import SectionMenu from '../components/website-builder/inline-editing/SectionMenu';
 import Toolbar from '../components/website-builder/inline-editing/Toolbar';
+import SectionMarketplace from '../components/website-builder/inline-editing/SectionMarketplace';
+import CommandPalette from '../components/website-builder/inline-editing/CommandPalette';
+import PropertyPanel from '../components/website-builder/inline-editing/PropertyPanel';
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { SortableSectionWrapper } from '../components/website-builder/inline-editing/SortableSectionWrapper';
+import { showToast } from '../components/ui/Toast';
 
 function WebsiteBuilderEditorContent() {
   const { pageId } = useParams();
@@ -62,6 +69,8 @@ function WebsiteBuilderEditorContent() {
     canUndo,
     canRedo,
   } = useWebsiteEditor();
+
+  const { selectedElement, selectElement, clearSelection, setEditingMode } = useSelectedElement();
 
   const [page, setPage] = useState<WebsitePage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +106,10 @@ function WebsiteBuilderEditorContent() {
   const [isTemplatePage, setIsTemplatePage] = useState(false);
   const [templateEditMode, setTemplateEditMode] = useState(false);
   const [showSectionMenu, setShowSectionMenu] = useState(false);
+  const [showSectionMarketplace, setShowSectionMarketplace] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showPropertyPanel, setShowPropertyPanel] = useState(false);
+  const [selectedSectionForProps, setSelectedSectionForProps] = useState<any | null>(null);
   const commandBusRef = useRef<SectionCommandBus>(new SectionCommandBus());
 
   useEffect(() => {
@@ -267,6 +280,19 @@ function WebsiteBuilderEditorContent() {
     }
   }, [page?.id, isTemplatePage, loadTemplateSections]);
 
+  // Keyboard listener for Command Palette (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Debounced section content update
   const updateSectionContent = useDebouncedCallback(async (id: string, content: Record<string, any>) => {
     setSaving(true);
@@ -327,6 +353,237 @@ function WebsiteBuilderEditorContent() {
     });
   };
 
+  // Handle section selection from SectionMarketplace
+  const handleSelectSectionFromMarketplace = async (sectionId: string) => {
+    if (!page?.id) return;
+
+    // Map marketplace section IDs to section types
+    const sectionTypeMap: Record<string, string> = {
+      'navigation-center-logo': 'navigation-center-logo',
+      'hero-modern': 'hero',
+      'hero-video': 'hero',
+      'hero-split': 'hero',
+      'schedule-modern': 'schedule',
+      'commitments': 'commitments',
+      'contact-form': 'contact',
+      'gallery-grid': 'gallery',
+      'team-roster': 'roster',
+    };
+
+    const sectionType = sectionTypeMap[sectionId] || 'hero';
+
+    // Navigation sections should always be at the top
+    const isNavigation = sectionType === 'navigation-center-logo';
+    const orderIndex = isNavigation ? 0 : templateSections.length;
+
+    const newSection = {
+      page_id: page.id,
+      name: sectionId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      section_type: sectionType,
+      order_index: orderIndex,
+      styles: {
+        content: getDefaultContentForSectionType(sectionType)
+      },
+    };
+
+    await commandBusRef.current.execute({
+      type: 'addSection',
+      payload: newSection,
+      apply: async () => {
+        // If it's a navigation section, update order_index of existing sections
+        if (isNavigation && templateSections.length > 0) {
+          // Increment order_index of all existing sections
+          await Promise.all(
+            templateSections.map(section =>
+              supabase
+                .from('website_sections')
+                .update({ order_index: section.order_index + 1 })
+                .eq('id', section.id)
+            )
+          );
+        }
+
+        const { data, error } = await supabase.from('website_sections').insert(newSection).select().single();
+        if (error) throw error;
+
+        // Add to the beginning if navigation, end if not
+        if (isNavigation) {
+          setTemplateSections((prev: any[]) => [data, ...prev.map(s => ({ ...s, order_index: s.order_index + 1 }))]);
+        } else {
+          setTemplateSections((prev: any[]) => [...prev, data]);
+        }
+      },
+      revert: async () => {
+        if (isNavigation && templateSections.length > 0) {
+          // Decrement order_index of all other sections
+          await Promise.all(
+            templateSections.map(section =>
+              supabase
+                .from('website_sections')
+                .update({ order_index: Math.max(0, section.order_index - 1) })
+                .eq('id', section.id)
+            )
+          );
+          setTemplateSections((prev: any[]) => prev.slice(1).map(s => ({ ...s, order_index: Math.max(0, s.order_index - 1) })));
+        } else {
+          const last = templateSections[templateSections.length - 1];
+          if (last?.id) {
+            await supabase.from('website_sections').delete().eq('id', last.id);
+            setTemplateSections((prev: any[]) => prev.slice(0, -1));
+          }
+        }
+      },
+    });
+  };
+
+  // Get default content for each section type
+  const getDefaultContentForSectionType = (sectionType: string): Record<string, any> => {
+    switch (sectionType) {
+      case 'navigation-center-logo':
+        return {
+          social_links: [],
+          top_right_text: '',
+          top_right_link: '#',
+          left_nav_items: [
+            { label: 'HOME', link: '#' },
+            { label: 'ABOUT', link: '#' },
+            { label: 'TEAMS', link: '#' },
+            { label: 'COMMITMENTS', link: '#' },
+          ],
+          right_nav_items: [
+            { label: 'TRYOUTS', link: '#' },
+            { label: 'TRAINING', link: '#' },
+            { label: 'RECRUITING', link: '#' },
+            { label: 'GEAR', link: '#' },
+          ],
+          logo_text: '',
+          top_bar_bg_color: 'rgba(255, 255, 255, 0.95)',
+          nav_bg_color: 'rgba(15, 23, 42, 0.95)',
+          nav_text_color: '#ffffff',
+          sticky: true,
+        };
+      case 'hero':
+        return {
+          heading: 'Welcome to Our Team',
+          subheading: 'Excellence in Sports',
+          cta_text: 'Get Started',
+          cta_link: '#',
+        };
+      case 'schedule':
+        return {
+          title: 'Schedule & Events',
+          description: 'View our upcoming games and events',
+        };
+      case 'commitments':
+        return {
+          title: 'Player Commitments',
+          description: 'Celebrating our athletes\' college commitments',
+        };
+      case 'contact':
+        return {
+          title: 'Get In Touch',
+          description: 'Contact us for more information',
+        };
+      case 'gallery':
+        return {
+          title: 'Photo Gallery',
+          description: 'View our team in action',
+        };
+      case 'roster':
+        return {
+          title: 'Team Roster',
+          description: 'Meet our players and coaches',
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Command palette execution handler
+  const handleExecuteCommand = async (commandId: string) => {
+    console.log('Executing command:', commandId);
+
+    switch (commandId) {
+      case 'add-hero':
+        await handleSelectSectionFromMarketplace('hero-modern');
+        break;
+      case 'add-schedule':
+        await handleSelectSectionFromMarketplace('schedule-modern');
+        break;
+      case 'add-contact':
+        await handleSelectSectionFromMarketplace('contact-form');
+        break;
+      case 'add-commitments':
+        await handleSelectSectionFromMarketplace('commitments');
+        break;
+      case 'delete-section':
+        // Delete currently selected section (if any)
+        // For now, just log - we'd need to track selected section
+        console.log('Delete section command');
+        break;
+      case 'duplicate-section':
+        // Duplicate currently selected section
+        console.log('Duplicate section command');
+        break;
+      case 'undo':
+        commandBusRef.current.undo();
+        break;
+      case 'redo':
+        commandBusRef.current.redo();
+        break;
+      case 'save':
+        await handleSave();
+        break;
+      case 'preview':
+        handlePreview();
+        break;
+      case 'theme':
+        setShowDesignSystem(true);
+        break;
+      case 'settings':
+        // Open page settings
+        console.log('Settings command');
+        break;
+      default:
+        console.log('Unknown command:', commandId);
+    }
+  };
+
+  // Property panel handlers
+  const handleOpenSectionSettings = (sectionId: string) => {
+    const section = templateSections.find((s: any) => s.id === sectionId);
+    if (section) {
+      setSelectedSectionForProps(section);
+      setShowPropertyPanel(true);
+    }
+  };
+
+  const handleUpdateSectionProperties = async (updates: Record<string, any>) => {
+    if (!selectedSectionForProps) return;
+
+    const sectionId = selectedSectionForProps.id;
+    const updatedSection = { ...selectedSectionForProps, ...updates };
+
+    // Update local state immediately for responsive UI
+    setSelectedSectionForProps(updatedSection);
+    setTemplateSections((prev: any[]) =>
+      prev.map((s: any) => (s.id === sectionId ? updatedSection : s))
+    );
+
+    // Persist to database
+    try {
+      await supabase
+        .from('website_sections')
+        .update({
+          styles: { ...(updatedSection.styles || {}), ...updates },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sectionId);
+    } catch (error) {
+      console.error('Error updating section properties:', error);
+    }
+  };
+
   const handleDeleteSection = async (id: string) => {
     const section = templateSections.find((s: any) => s.id === id);
     if (!section) return;
@@ -338,6 +595,16 @@ function WebsiteBuilderEditorContent() {
       apply: async () => {
         await supabase.from('website_sections').delete().eq('id', id);
         setTemplateSections((prev: any[]) => prev.filter((s: any) => s.id !== id));
+
+        // Show success toast with undo action
+        showToast.success('Section deleted', {
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              commandBusRef.current.undo();
+            },
+          },
+        });
       },
       revert: async () => {
         await supabase.from('website_sections').insert(section);
@@ -455,8 +722,13 @@ function WebsiteBuilderEditorContent() {
         .eq('id', pageId);
 
       await loadPageAndBlocks();
+
+      // Show success toast
+      showToast.success('Changes saved successfully!');
     } catch (error) {
       console.error('Error saving page:', error);
+      // Show error toast with retry option
+      showToast.error('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -494,6 +766,140 @@ function WebsiteBuilderEditorContent() {
       setSaving(false);
     }
   };
+
+  // Handle element style changes (with debouncing to avoid excessive DB writes)
+  const handleElementStyleChangeDebounced = useDebouncedCallback(async (elementId: string, styles: Record<string, any>) => {
+    if (!selectedElement || !pageId) return;
+
+    try {
+      // Find the section that contains this element
+      const section = templateSections.find(s => s.id === selectedElement.sectionId);
+      if (!section) {
+        console.error('Section not found for element:', elementId);
+        return;
+      }
+
+      // Get current element_overrides or initialize empty object
+      const currentContent = section.styles?.content || section.styles || {};
+      const elementOverrides = currentContent.element_overrides || {};
+
+      // Update the overrides for this specific element
+      const updatedOverrides = {
+        ...elementOverrides,
+        [elementId]: styles,
+      };
+
+      // Update the section content with new overrides
+      const updatedContent = {
+        ...currentContent,
+        element_overrides: updatedOverrides,
+      };
+
+      // Save to database
+      const { error } = await supabase
+        .from('website_sections')
+        .update({
+          styles: {
+            ...section.styles,
+            content: updatedContent,
+          },
+        })
+        .eq('id', section.id);
+
+      if (error) {
+        console.error('Error saving element styles:', error);
+        return;
+      }
+
+      // Update local state
+      setTemplateSections(sections =>
+        sections.map(s =>
+          s.id === section.id
+            ? {
+                ...s,
+                styles: {
+                  ...s.styles,
+                  content: updatedContent,
+                },
+              }
+            : s
+        )
+      );
+
+      console.log('Element styles saved:', elementId, styles);
+    } catch (error) {
+      console.error('Error in handleElementStyleChange:', error);
+    }
+  }, 500); // 500ms debounce delay
+
+  // Visual selection indicator - apply outline to selected element
+  useEffect(() => {
+    // Remove previous selection indicators
+    const previouslySelected = document.querySelectorAll('[data-element-selected="true"]');
+    previouslySelected.forEach((el) => {
+      el.removeAttribute('data-element-selected');
+      (el as HTMLElement).style.outline = '';
+      (el as HTMLElement).style.outlineOffset = '';
+    });
+
+    // Add selection indicator to current element
+    if (selectedElement) {
+      const element = document.querySelector(`[data-element-id="${selectedElement.elementId}"]`);
+      if (element) {
+        (element as HTMLElement).setAttribute('data-element-selected', 'true');
+        (element as HTMLElement).style.outline = '2px solid #3B82F6';
+        (element as HTMLElement).style.outlineOffset = '2px';
+      }
+    }
+  }, [selectedElement]);
+
+  // Global click handler for element selection
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Find the closest selectable element
+      const selectableElement = target.closest('[data-selectable="true"]');
+
+      if (selectableElement && isTemplatePage && !templateEditMode) {
+        // Prevent default behavior for selectable elements in view mode (when edit mode is OFF)
+        event.stopPropagation();
+
+        const elementId = selectableElement.getAttribute('data-element-id');
+        const elementType = selectableElement.getAttribute('data-element-type');
+        const sectionId = selectableElement.getAttribute('data-section-id');
+        const parentId = selectableElement.getAttribute('data-parent-element-id');
+
+        if (elementId && elementType && sectionId) {
+          // Build parent chain for breadcrumb
+          const parentIds: string[] = [];
+          if (parentId) {
+            parentIds.push(parentId);
+          }
+
+          // Check if element is already in editing mode
+          if (selectedElement?.elementId === elementId && selectedElement.isEditing) {
+            // Already editing, don't change state
+            return;
+          }
+
+          // Select the element (not editing yet)
+          selectElement({
+            elementId,
+            elementType: elementType as any,
+            sectionId,
+            parentIds,
+            isEditing: false,
+          });
+        }
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, true);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick, true);
+    };
+  }, [selectElement, selectedElement, isTemplatePage, templateEditMode]);
 
   // Keyboard shortcuts - defined after all handler functions
   useKeyboardShortcuts({
@@ -534,7 +940,12 @@ function WebsiteBuilderEditorContent() {
     },
     onPaste: pasteBlock,
     onEscape: () => {
-      selectBlock(null);
+      // Clear element selection first, then block selection
+      if (selectedElement) {
+        clearSelection();
+      } else {
+        selectBlock(null);
+      }
     },
     onHelp: () => {
       setShowShortcutsModal(true);
@@ -711,7 +1122,13 @@ function WebsiteBuilderEditorContent() {
 
             {/* Design System */}
             <button
-              onClick={() => setShowDesignSystem(!showDesignSystem)}
+              onClick={() => {
+                // Auto-disable Edit Mode when opening Design System to enable element selection
+                if (!showDesignSystem && templateEditMode && isTemplatePage) {
+                  setTemplateEditMode(false);
+                }
+                setShowDesignSystem(!showDesignSystem);
+              }}
               className={`flex items-center space-x-1 px-3 py-1.5 text-sm transition-colors ${
                 showDesignSystem
                   ? 'text-blue-500'
@@ -771,7 +1188,7 @@ function WebsiteBuilderEditorContent() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {isTemplatePage && templateSections.length > 0 ? (
+        {isTemplatePage ? (
           // Template Mode - Inline editing with sections
           <div className="flex flex-col h-full">
             <Toolbar
@@ -782,34 +1199,58 @@ function WebsiteBuilderEditorContent() {
               onUndo={() => commandBusRef.current.undo()}
               onRedo={() => commandBusRef.current.redo()}
               saving={saving}
-              onAddSection={() => setShowSectionMenu(true)}
+              onAddSection={() => setShowSectionMarketplace(true)}
             />
             <div className="flex-1 overflow-y-auto bg-slate-950">
-              <DndContext
-                collisionDetection={closestCenter}
-                onDragEnd={handleReorder}
-              >
-                <SortableContext
-                  items={templateSections.map((s: any) => s.id)}
-                  strategy={verticalListSortingStrategy}
+              {templateSections.length === 0 ? (
+                // Empty state for new pages
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center max-w-md px-6">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-3">Start Building Your Page</h3>
+                    <p className="text-slate-400 mb-8">
+                      Add your first section to begin creating your page. Choose from hero sections, content blocks, galleries, and more.
+                    </p>
+                    <button
+                      onClick={() => setShowSectionMarketplace(true)}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    >
+                      Add Your First Section
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleReorder}
                 >
-                  {templateSections.map((section: any) => (
-                    <SortableSectionWrapper key={section.id} id={section.id}>
-                      {({ dragHandleProps }) => (
-                        <div>
-                          <SectionRenderer
-                            sections={[section]}
-                            editMode={templateEditMode}
-                            onUpdateSection={handleSectionUpdate}
-                            onDeleteSection={handleDeleteSection}
-                            dragHandleProps={dragHandleProps}
-                          />
-                        </div>
-                      )}
-                    </SortableSectionWrapper>
-                  ))}
-                </SortableContext>
-              </DndContext>
+                  <SortableContext
+                    items={templateSections.map((s: any) => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {templateSections.map((section: any) => (
+                      <SortableSectionWrapper key={section.id} id={section.id}>
+                        {({ dragHandleProps }) => (
+                          <div>
+                            <SectionRenderer
+                              sections={[section]}
+                              editMode={templateEditMode}
+                              onUpdateSection={handleSectionUpdate}
+                              onDeleteSection={handleDeleteSection}
+                              onSettingsClick={handleOpenSectionSettings}
+                              dragHandleProps={dragHandleProps}
+                            />
+                          </div>
+                        )}
+                      </SortableSectionWrapper>
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
             </div>
             {showSectionMenu && page && (
               <SectionMenu
@@ -818,6 +1259,31 @@ function WebsiteBuilderEditorContent() {
                 pageId={page.id}
               />
             )}
+
+            {/* Section Marketplace - Visual section selector */}
+            <SectionMarketplace
+              isOpen={showSectionMarketplace}
+              onClose={() => setShowSectionMarketplace(false)}
+              onSelectSection={handleSelectSectionFromMarketplace}
+            />
+
+            {/* Command Palette - Cmd+K power user tool */}
+            <CommandPalette
+              isOpen={showCommandPalette}
+              onClose={() => setShowCommandPalette(false)}
+              onExecuteCommand={handleExecuteCommand}
+            />
+
+            {/* Property Panel - Right sidebar for section properties */}
+            <PropertyPanel
+              isOpen={showPropertyPanel}
+              onClose={() => {
+                setShowPropertyPanel(false);
+                setSelectedSectionForProps(null);
+              }}
+              selectedSection={selectedSectionForProps}
+              onUpdateSection={handleUpdateSectionProperties}
+            />
           </div>
         ) : websiteMode === 'clone' && cloneHtml ? (
           <div className="h-full flex flex-col bg-white">
@@ -941,13 +1407,23 @@ function WebsiteBuilderEditorContent() {
         )}
       </div>
 
-      {/* Design System Panel */}
-      <DesignSystemPanel
-        isOpen={showDesignSystem}
-        onClose={() => setShowDesignSystem(false)}
-        designSystem={designSystem}
-        onUpdate={updateDesignSystem}
-      />
+      {/* Design System Panel - only show when no element is selected */}
+      {!selectedElement && (
+        <DesignSystemPanel
+          isOpen={showDesignSystem}
+          onClose={() => setShowDesignSystem(false)}
+          designSystem={designSystem}
+          onUpdate={updateDesignSystem}
+        />
+      )}
+
+      {/* Element Properties Panel - shows when an element is selected */}
+      {selectedElement && (
+        <ElementPropertiesPanel
+          onClose={() => clearSelection()}
+          onStyleChange={handleElementStyleChangeDebounced}
+        />
+      )}
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal
@@ -1098,8 +1574,12 @@ function renderPreviewBlock(block: any) {
 
 export default function WebsiteBuilderEditor() {
   return (
-    <WebsiteEditorProvider>
-      <WebsiteBuilderEditorContent />
-    </WebsiteEditorProvider>
+    <ThemeProvider initialThemeId="dark_athletic">
+      <WebsiteEditorProvider>
+        <SelectedElementProvider>
+          <WebsiteBuilderEditorContent />
+        </SelectedElementProvider>
+      </WebsiteEditorProvider>
+    </ThemeProvider>
   );
 }

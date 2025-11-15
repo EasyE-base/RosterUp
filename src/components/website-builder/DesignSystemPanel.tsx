@@ -258,7 +258,7 @@ export default function DesignSystemPanel({
   };
 
   return (
-    <div className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col animate-slideInRight">
+    <div className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-[9999] flex flex-col animate-slideInRight">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800">
         <h2 className="text-lg font-semibold text-white">Design System</h2>
@@ -516,15 +516,43 @@ function ColorsTab({
 // Typography Tab Component
 function TypographyTab({ typography, onUpdate }: any) {
   const fontFamilies = [
-    'Inter, sans-serif',
-    'Arial, sans-serif',
-    'Helvetica, sans-serif',
-    'Georgia, serif',
-    'Times New Roman, serif',
-    'Courier New, monospace',
-    'Verdana, sans-serif',
-    'Trebuchet MS, sans-serif',
+    { name: 'Inter', value: 'Inter, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap' },
+    { name: 'Roboto', value: 'Roboto, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap' },
+    { name: 'Open Sans', value: 'Open Sans, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700;800&display=swap' },
+    { name: 'Lato', value: 'Lato, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap' },
+    { name: 'Montserrat', value: 'Montserrat, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap' },
+    { name: 'Poppins', value: 'Poppins, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap' },
+    { name: 'Playfair Display', value: 'Playfair Display, serif', url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap' },
+    { name: 'Merriweather', value: 'Merriweather, serif', url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&display=swap' },
+    { name: 'Raleway', value: 'Raleway, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&display=swap' },
+    { name: 'Nunito', value: 'Nunito, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap' },
+    { name: 'PT Sans', value: 'PT Sans, sans-serif', url: 'https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap' },
+    { name: 'Source Sans Pro', value: 'Source Sans Pro, sans-serif', url: 'https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap' },
+    { name: 'Arial', value: 'Arial, sans-serif', url: null },
+    { name: 'Helvetica', value: 'Helvetica, sans-serif', url: null },
+    { name: 'Georgia', value: 'Georgia, serif', url: null },
+    { name: 'Times New Roman', value: 'Times New Roman, serif', url: null },
   ];
+
+  // Load Google Fonts when selected
+  const loadGoogleFont = (fontValue: string) => {
+    const font = fontFamilies.find(f => f.value === fontValue);
+    if (font && font.url) {
+      // Check if the font is already loaded
+      const existingLink = document.querySelector(`link[href="${font.url}"]`);
+      if (!existingLink) {
+        const link = document.createElement('link');
+        link.href = font.url;
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+    }
+  };
+
+  const handleFontChange = (type: 'headingFont' | 'bodyFont', value: string) => {
+    loadGoogleFont(value);
+    onUpdate(type, value);
+  };
 
   return (
     <div className="space-y-6">
@@ -538,12 +566,12 @@ function TypographyTab({ typography, onUpdate }: any) {
             </label>
             <select
               value={typography.headingFont}
-              onChange={(e) => onUpdate('headingFont', e.target.value)}
+              onChange={(e) => handleFontChange('headingFont', e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-white text-sm"
             >
               {fontFamilies.map((font) => (
-                <option key={font} value={font}>
-                  {font.split(',')[0]}
+                <option key={font.value} value={font.value}>
+                  {font.name}
                 </option>
               ))}
             </select>
@@ -554,12 +582,12 @@ function TypographyTab({ typography, onUpdate }: any) {
             </label>
             <select
               value={typography.bodyFont}
-              onChange={(e) => onUpdate('bodyFont', e.target.value)}
+              onChange={(e) => handleFontChange('bodyFont', e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-white text-sm"
             >
               {fontFamilies.map((font) => (
-                <option key={font} value={font}>
-                  {font.split(',')[0]}
+                <option key={font.value} value={font.value}>
+                  {font.name}
                 </option>
               ))}
             </select>
@@ -641,19 +669,19 @@ function TypographyTab({ typography, onUpdate }: any) {
           className="bg-white p-4 rounded space-y-2"
           style={{ fontFamily: typography.bodyFont }}
         >
-          <h1 style={{ fontFamily: typography.headingFont, fontSize: '2em' }}>
+          <h1 style={{ fontFamily: typography.headingFont, fontSize: '2em', fontWeight: 700 }}>
             Heading 1
           </h1>
-          <h2 style={{ fontFamily: typography.headingFont, fontSize: '1.5em' }}>
+          <h2 style={{ fontFamily: typography.headingFont, fontSize: '1.5em', fontWeight: 600 }}>
             Heading 2
           </h2>
           <h3
-            style={{ fontFamily: typography.headingFont, fontSize: '1.25em' }}
+            style={{ fontFamily: typography.headingFont, fontSize: '1.25em', fontWeight: 600 }}
           >
             Heading 3
           </h3>
-          <p style={{ fontSize: typography.baseFontSize }}>
-            Body text using {typography.bodyFont.split(',')[0]}
+          <p style={{ fontSize: typography.baseFontSize, fontFamily: typography.bodyFont }}>
+            This is body text in {fontFamilies.find(f => f.value === typography.bodyFont)?.name || 'default font'}. The quick brown fox jumps over the lazy dog.
           </p>
         </div>
       </div>

@@ -30,6 +30,7 @@ export interface Organization {
   city: string | null;
   state: string | null;
   country: string;
+  primary_sport: string | null;
   subscription_tier: 'starter' | 'growth' | 'elite' | 'enterprise';
   subscription_status: 'active' | 'inactive' | 'cancelled' | 'expired';
   created_at: string;
@@ -70,6 +71,10 @@ export interface Team {
   season: string | null;
   roster_limit: number;
   is_active: boolean;
+  classification: string | null; // Current team classification (A, B, C, REC, ALL_STARS)
+  prior_season_classification: string | null; // Previous season classification
+  classification_eligibility: any; // JSON object storing ClassificationCriteria
+  last_classification_review: string | null; // Date of last classification review
   created_at: string;
   updated_at: string;
 }
@@ -129,10 +134,12 @@ export interface Tournament {
   title: string;
   description: string | null;
   sport: string;
+  sanctioning_body: string | null;
   start_date: string;
   end_date: string;
   registration_deadline: string;
   location_name: string;
+  address: string | null;
   city: string;
   state: string | null;
   country: string;
@@ -143,8 +150,27 @@ export interface Tournament {
   current_participants: number;
   entry_fee: number | null;
   prize_info: string | null;
+  requirements: any;
   rules: any;
-  status: 'open' | 'closed' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'draft' | 'open' | 'closed' | 'in_progress' | 'completed' | 'cancelled';
+  image_url: string | null;
+  classification_acceptance: string | null; // Tournament classification acceptance policy
+  accepted_classifications: string[] | null; // Custom list of accepted classifications
+  classification_rules: any; // Additional classification-specific rules
+  age_group: string | null; // Age group for classification rule exceptions
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TournamentParticipant {
+  id: string;
+  tournament_id: string;
+  team_id: string | null;
+  organization_id: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waitlist';
+  confirmed_at: string | null;
+  check_in_status: 'not_checked_in' | 'checked_in' | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -197,7 +223,18 @@ export interface WebsiteSection {
   id: string;
   page_id: string;
   name: string;
-  section_type: 'header' | 'content' | 'footer';
+  section_type:
+    | 'header'
+    | 'content'
+    | 'footer'
+    | 'hero'
+    | 'about'
+    | 'schedule'
+    | 'contact'
+    | 'navigation-center-logo'
+    | 'commitments'
+    | 'gallery'
+    | 'roster';
   background_color?: string;
   background_image?: string;
   background_size?: string;
@@ -373,4 +410,190 @@ export interface WebsiteDesignSystem {
   effects: any;
   created_at: string;
   updated_at: string;
+}
+
+// Player Marketplace Types
+export interface PlayerProfile {
+  id: string;
+  user_id: string;
+  sport: string;
+  age_group: string | null;
+  classification: string | null; // A, B, C, REC, ALL_STARS
+  position: string[] | null; // Changed to array for multiple positions
+  bio: string | null;
+  location_city: string | null;
+  location_state: string | null;
+  location_country: string;
+  photo_url: string | null;
+  profile_completeness: number;
+  profile_views: number;
+  is_active: boolean;
+  is_visible_in_search: boolean;
+  // Enhanced profile fields
+  academic_year: string | null;
+  gpa: number | null;
+  graduation_year: number | null;
+  college_committed: string | null;
+  recruiting_status: 'open' | 'committed' | 'closed';
+  preferred_contact_method: string | null;
+  parent_phone: string | null;
+  highlight_video_url: string | null;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    full_name: string;
+    email: string;
+  };
+}
+
+export interface PlayerMedia {
+  id: string;
+  player_id: string;
+  media_type: 'photo' | 'video' | 'document';
+  file_url: string;
+  thumbnail_url: string | null;
+  title: string | null;
+  description: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  duration: number | null; // for videos, in seconds
+  is_featured: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerStatistics {
+  id: string;
+  player_id: string;
+  season: string;
+  sport: string;
+  stats_data: any; // Sport-specific stats as JSON
+  games_played: number;
+  highlights: string | null;
+  source: string; // 'manual', 'gamechanger', 'imported'
+  verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerAchievement {
+  id: string;
+  player_id: string;
+  achievement_type: 'award' | 'record' | 'milestone' | 'championship';
+  title: string;
+  description: string | null;
+  date_achieved: string | null;
+  image_url: string | null;
+  organization: string | null;
+  display_order: number;
+  is_featured: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerPhysicalMeasurements {
+  id: string;
+  player_id: string;
+  measured_date: string;
+  height_inches: number | null;
+  weight_lbs: number | null;
+  wingspan_inches: number | null;
+  // Speed/Agility
+  forty_yard_dash: number | null;
+  shuttle_run: number | null;
+  three_cone_drill: number | null;
+  sixty_yard_dash: number | null;
+  // Strength
+  bench_press_max: number | null;
+  squat_max: number | null;
+  deadlift_max: number | null;
+  // Jump
+  vertical_jump: number | null;
+  broad_jump: number | null;
+  // Baseball/Softball specific
+  exit_velocity: number | null;
+  throwing_velocity: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerTeamHistory {
+  id: string;
+  player_id: string;
+  team_name: string;
+  organization_name: string | null;
+  season: string;
+  sport: string;
+  division: string | null;
+  classification: string | null;
+  position_played: string | null;
+  jersey_number: number | null;
+  win_loss_record: string | null;
+  tournaments_attended: number;
+  tournament_results: string | null;
+  championships_won: number;
+  start_date: string | null;
+  end_date: string | null;
+  is_current: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoachInterest {
+  id: string;
+  player_id: string;
+  coach_user_id: string;
+  organization_id: string | null;
+  interest_type: 'view' | 'request_info' | 'invite_camp' | 'mark_prospect';
+  message: string | null;
+  contact_info: string | null;
+  status: 'pending' | 'contacted' | 'in_process' | 'closed';
+  player_response: string | null;
+  responded_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerProfileView {
+  id: string;
+  player_id: string;
+  viewer_user_id: string | null;
+  viewer_organization_id: string | null;
+  viewer_type: 'coach' | 'scout' | 'anonymous' | null;
+  referrer: string | null;
+  device_type: string | null;
+  browser: string | null;
+  location_city: string | null;
+  location_state: string | null;
+  location_country: string | null;
+  session_duration: number | null;
+  pages_viewed: number;
+  viewed_at: string;
+}
+
+export interface PlayerContactRequest {
+  id: string;
+  player_id: string;
+  organization_id: string;
+  message: string;
+  contact_email: string;
+  contact_phone: string | null;
+  status: 'pending' | 'viewed' | 'responded' | 'expired';
+  viewed_at: string | null;
+  responded_at: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SearchAnalytics {
+  id: string;
+  organization_id: string | null;
+  search_filters: any; // JSONB with filter criteria
+  result_count: number;
+  clicked_player_id: string | null;
+  contact_initiated: boolean;
+  created_at: string;
 }

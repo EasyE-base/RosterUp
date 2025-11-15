@@ -14,6 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setPlayer(null);
         } else if (profileData.user_type === 'player') {
           const { data: playerData } = await supabase
-            .from('players')
+            .from('player_profiles')
             .select('*')
             .eq('user_id', userId)
             .maybeSingle();
@@ -185,6 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUserData = async () => {
+    if (user) {
+      await loadUserProfile(user.id);
+    }
+  };
+
   const value = {
     user,
     session,
@@ -196,6 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     updateProfile,
+    refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

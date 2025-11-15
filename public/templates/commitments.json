@@ -1,0 +1,84 @@
+{
+  "id": "commitments-sports-01",
+  "name": "Player Commitments Section",
+  "description": "Showcase player college and professional commitments with filtering by year, division, and team",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "Player Commitments",
+      "section_type": "commitments",
+      "content": {
+        "title": "Player Commitments",
+        "subtitle": "Celebrating our athletes' achievements",
+        "commitments": [
+          {
+            "player_name": "Alex Johnson",
+            "grad_year": 2025,
+            "institution_name": "Stanford University",
+            "institution_type": "D1",
+            "position": "Midfielder",
+            "team_name": "U18 Boys Premier",
+            "is_featured": true
+          },
+          {
+            "player_name": "Sarah Martinez",
+            "grad_year": 2025,
+            "institution_name": "UCLA",
+            "institution_type": "D1",
+            "position": "Forward",
+            "team_name": "U18 Girls Elite",
+            "is_featured": true
+          },
+          {
+            "player_name": "Michael Chen",
+            "grad_year": 2024,
+            "institution_name": "Duke University",
+            "institution_type": "D1",
+            "position": "Goalkeeper",
+            "team_name": "U18 Boys Premier",
+            "is_featured": false
+          },
+          {
+            "player_name": "Emma Williams",
+            "grad_year": 2024,
+            "institution_name": "University of Virginia",
+            "institution_type": "D1",
+            "position": "Defender",
+            "team_name": "U18 Girls Elite",
+            "is_featured": false
+          },
+          {
+            "player_name": "David Rodriguez",
+            "grad_year": 2024,
+            "institution_name": "Cal Poly",
+            "institution_type": "D2",
+            "position": "Midfielder",
+            "team_name": "U17 Boys Select",
+            "is_featured": false
+          },
+          {
+            "player_name": "Olivia Brown",
+            "grad_year": 2023,
+            "institution_name": "Amherst College",
+            "institution_type": "D3",
+            "position": "Forward",
+            "team_name": "U16 Girls Academy",
+            "is_featured": false
+          }
+        ]
+      },
+      "styles": {
+        "padding": "80px 20px",
+        "backgroundColor": "#F8F9FA",
+        "maxWidth": "1200px",
+        "margin": "0 auto"
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-01-31",
+    "tags": ["commitments", "college", "recruiting", "alumni"]
+  }
+}

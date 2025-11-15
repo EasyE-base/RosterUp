@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Mail,
   MapPin,
+  Camera,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Team, Player } from '../lib/supabase';
@@ -30,7 +31,11 @@ interface TeamMember {
     profiles: {
       full_name: string;
       email: string;
+      avatar_url: string | null;
     };
+    player_profiles: {
+      photo_url: string | null;
+    } | null;
   };
 }
 
@@ -47,6 +52,7 @@ export default function TeamDetails() {
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -75,11 +81,42 @@ export default function TeamDetails() {
       setLoading(true);
       const { data, error } = await supabase
         .from('team_members')
-        .select('*, players(id, user_id, age, primary_position, profiles(full_name, email))')
+        .select(`
+          *,
+          players(
+            id,
+            user_id,
+            age,
+            primary_position,
+            profiles(full_name, email, avatar_url)
+          )
+        `)
         .eq('team_id', id)
         .order('joined_at', { ascending: false });
 
+      // Fetch player profile photos separately
+      if (data && data.length > 0) {
+        const playerIds = data.map((m: any) => m.players.id);
+        console.log('Fetching player profiles for IDs:', playerIds);
+        const { data: playerProfiles, error: profileError } = await supabase
+          .from('player_profiles')
+          .select('id, photo_url')
+          .in('id', playerIds);
+
+        console.log('Player profiles fetched:', playerProfiles);
+        if (profileError) console.error('Error fetching player profiles:', profileError);
+
+        // Merge photo URLs into the data
+        if (playerProfiles) {
+          data.forEach((member: any) => {
+            const profile = playerProfiles.find(p => p.id === member.players.id);
+            member.players.player_profiles = profile || null;
+          });
+        }
+      }
+
       if (error) throw error;
+      console.log('Team members data:', data);
       setMembers((data as TeamMember[]) || []);
     } catch (error) {
       console.error('Error loading team members:', error);
@@ -94,13 +131,16 @@ export default function TeamDetails() {
     setSearching(true);
     setError('');
     try {
+      // Get all players with their profiles
       const { data, error } = await supabase
         .from('players')
-        .select('*, profiles(full_name, email)')
-        .or(`profiles.full_name.ilike.%${searchTerm}%,profiles.email.ilike.%${searchTerm}%`)
+        .select('*, profiles!inner(full_name, email, avatar_url)')
+        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`, { foreignTable: 'profiles' })
         .limit(10);
 
       if (error) throw error;
+
+      console.log('Player search results:', data);
 
       const memberPlayerIds = members.map(m => m.players.id);
       const filteredResults = (data || []).filter(
@@ -109,6 +149,7 @@ export default function TeamDetails() {
 
       setSearchResults(filteredResults);
     } catch (err) {
+      console.error('Player search error:', err);
       setError('Failed to search players');
     } finally {
       setSearching(false);
@@ -156,34 +197,122 @@ export default function TeamDetails() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !team) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      // Create unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${team.id}-${Date.now()}.${fileExt}`;
+      const filePath = `team-logos/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('team-assets')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('team-assets')
+        .getPublicUrl(filePath);
+
+      // Update team logo_url in database
+      const { error: updateError } = await supabase
+        .from('teams')
+        .update({ logo_url: urlData.publicUrl })
+        .eq('id', team.id);
+
+      if (updateError) throw updateError;
+
+      // Reload team details
+      await loadTeamDetails();
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   if (!team) {
     return (
-      <div className="min-h-screen bg-slate-950 pt-20 pb-12 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="min-h-screen bg-[rgb(247,247,249)] pt-32 pb-12 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-[rgb(247,247,249)] pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center space-x-2 text-slate-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center space-x-2 text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back to Dashboard</span>
         </button>
 
-        <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-8 mb-8">
+        <div className="bg-white border border-slate-200 rounded-xl p-8 mb-8 shadow-sm">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-2xl">
-                {team.name.charAt(0)}
+              <div className="relative group">
+                {team.logo_url ? (
+                  <img
+                    src={team.logo_url}
+                    alt={team.name}
+                    className="w-16 h-16 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-2xl">
+                    {team.name.charAt(0)}
+                  </div>
+                )}
+                {organization && (
+                  <>
+                    <label
+                      htmlFor="logo-upload"
+                      className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      {uploadingLogo ? (
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-6 h-6 text-white" />
+                      )}
+                    </label>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={uploadingLogo}
+                      className="hidden"
+                    />
+                  </>
+                )}
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">{team.name}</h1>
-                <div className="flex items-center space-x-4 text-slate-400">
+                <h1 className="text-3xl font-bold text-[rgb(29,29,31)] mb-2">{team.name}</h1>
+                <div className="flex items-center space-x-4 text-[rgb(134,142,150)]">
                   <span className="flex items-center space-x-1">
                     <Trophy className="w-4 h-4" />
                     <span>{team.sport}</span>
@@ -206,7 +335,7 @@ export default function TeamDetails() {
             {organization && (
               <button
                 onClick={() => setShowAddPlayerModal(true)}
-                className="px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-medium rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center space-x-2"
+                className="px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-medium rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center space-x-2"
               >
                 <Plus className="w-5 h-5" />
                 <span>Add Player</span>
@@ -215,48 +344,48 @@ export default function TeamDetails() {
           </div>
 
           {team.description && (
-            <p className="text-slate-300 mb-4">{team.description}</p>
+            <p className="text-[rgb(134,142,150)] mb-4">{team.description}</p>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-slate-400 mb-2">
+            <div className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
                 <Users className="w-5 h-5" />
                 <span className="text-sm">Roster</span>
               </div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-2xl font-bold text-[rgb(29,29,31)]">
                 {members.length} / {team.roster_limit}
               </p>
             </div>
 
             {team.season && (
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-slate-400 mb-2">
+              <div className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
                   <Calendar className="w-5 h-5" />
                   <span className="text-sm">Season</span>
                 </div>
-                <p className="text-2xl font-bold text-white">{team.season}</p>
+                <p className="text-2xl font-bold text-[rgb(29,29,31)]">{team.season}</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Team Roster</h2>
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6">Team Roster</h2>
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
             </div>
           ) : members.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">No players yet</h3>
-              <p className="text-slate-400 mb-6">Start building your roster by adding players</p>
+              <Users className="w-16 h-16 text-[rgb(134,142,150)] mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-[rgb(29,29,31)] mb-2">No players yet</h3>
+              <p className="text-[rgb(134,142,150)] mb-6">Start building your roster by adding players</p>
               {organization && (
                 <button
                   onClick={() => setShowAddPlayerModal(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all inline-flex items-center space-x-2"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all inline-flex items-center space-x-2"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Add First Player</span>
@@ -268,18 +397,26 @@ export default function TeamDetails() {
               {members.map((member) => (
                 <div
                   key={member.id}
-                  className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 hover:bg-slate-800 transition-all"
+                  className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
-                        {member.players.profiles.full_name.charAt(0)}
-                      </div>
+                      {member.players.player_profiles?.photo_url ? (
+                        <img
+                          src={member.players.player_profiles.photo_url}
+                          alt={member.players.profiles.full_name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
+                          {member.players.profiles.full_name.charAt(0)}
+                        </div>
+                      )}
                       <div>
-                        <h3 className="text-white font-semibold">
+                        <h3 className="text-[rgb(29,29,31)] font-semibold">
                           {member.players.profiles.full_name}
                         </h3>
-                        <div className="flex items-center space-x-3 text-sm text-slate-400">
+                        <div className="flex items-center space-x-3 text-sm text-[rgb(134,142,150)]">
                           {member.players.primary_position && (
                             <span>{member.players.primary_position}</span>
                           )}
@@ -301,7 +438,7 @@ export default function TeamDetails() {
                     {organization && (
                       <button
                         onClick={() => handleRemovePlayer(member.id)}
-                        className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                        className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -316,9 +453,9 @@ export default function TeamDetails() {
 
       {showAddPlayerModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Add Player to Team</h2>
+          <div className="bg-white border border-slate-200 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[rgb(29,29,31)]">Add Player to Team</h2>
               <button
                 onClick={() => {
                   setShowAddPlayerModal(false);
@@ -326,7 +463,7 @@ export default function TeamDetails() {
                   setSearchResults([]);
                   setError('');
                 }}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -334,32 +471,32 @@ export default function TeamDetails() {
 
             <div className="p-6 space-y-6">
               {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-600 text-sm">{error}</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   Search for players
                 </label>
                 <div className="flex space-x-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchPlayers()}
                       placeholder="Search by name or email..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className="w-full pl-10 pr-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                     />
                   </div>
                   <button
                     onClick={handleSearchPlayers}
                     disabled={searching || !searchTerm.trim()}
-                    className="px-6 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -372,26 +509,34 @@ export default function TeamDetails() {
 
               {searchResults.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-white font-semibold">Search Results</h3>
+                  <h3 className="text-[rgb(29,29,31)] font-semibold">Search Results</h3>
                   {searchResults.map((player: any) => (
                     <div
                       key={player.id}
-                      className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 flex items-center justify-between"
+                      className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:border-[rgb(0,113,227)]/30 transition-all"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
-                          {player.profiles?.full_name?.charAt(0) || 'P'}
-                        </div>
+                        {player.profiles?.avatar_url ? (
+                          <img
+                            src={player.profiles.avatar_url}
+                            alt={player.profiles?.full_name || 'Player'}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
+                            {player.profiles?.full_name?.charAt(0) || 'P'}
+                          </div>
+                        )}
                         <div>
-                          <p className="text-white font-semibold">
+                          <p className="text-[rgb(29,29,31)] font-semibold">
                             {player.profiles?.full_name || 'Unknown Player'}
                           </p>
-                          <div className="flex items-center space-x-2 text-sm text-slate-400">
+                          <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
                             <Mail className="w-4 h-4" />
                             <span>{player.profiles?.email}</span>
                           </div>
                           {player.location && (
-                            <div className="flex items-center space-x-2 text-sm text-slate-400">
+                            <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
                               <MapPin className="w-4 h-4" />
                               <span>{player.location}</span>
                             </div>
@@ -401,7 +546,7 @@ export default function TeamDetails() {
                       <button
                         onClick={() => handleAddPlayer(player.id)}
                         disabled={adding === player.id}
-                        className="px-4 py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                        className="px-4 py-2 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                       >
                         {adding === player.id ? (
                           <>

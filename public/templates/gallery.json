@@ -1,0 +1,24 @@
+{
+  "id": "gallery-sports-01",
+  "name": "Photo Gallery",
+  "description": "Responsive grid of team photos and action shots",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "Photo Gallery",
+      "section_type": "gallery",
+      "content": {
+        "title": "Photo Gallery",
+        "description": "View our team in action",
+        "images": []
+      },
+      "styles": {},
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-11-02",
+    "tags": ["gallery", "sports", "photos"]
+  }
+}

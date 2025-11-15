@@ -1,11 +1,12 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/layout/Navbar';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Header } from './components/ui/header-2';
 import Footer from './components/layout/Footer';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import OnboardingCheck from './components/OnboardingCheck';
 import ConfigError from './components/ConfigError';
 import { appConfig } from './config/app.config';
+import { ToastProvider } from './components/ui/Toast';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
@@ -24,11 +25,17 @@ import Tournaments from './pages/Tournaments';
 import TournamentCreate from './pages/TournamentCreate';
 import TournamentDetails from './pages/TournamentDetails';
 import TournamentApplications from './pages/TournamentApplications';
+import TournamentGuestPlayers from './pages/TournamentGuestPlayers';
 import TournamentEdit from './pages/TournamentEdit';
 import OrganizationOnboarding from './pages/onboarding/OrganizationOnboarding';
 import PlayerOnboarding from './pages/onboarding/PlayerOnboarding';
 import WebsiteBuilder from './pages/WebsiteBuilder';
 import WebsiteBuilderEditor from './pages/WebsiteBuilderEditor';
+import PlayerMarketplace from './pages/marketplace/PlayerMarketplace';
+import PlayerProfileView from './pages/player/PlayerProfileView';
+import PlayerProfileCreate from './pages/player/PlayerProfileCreate';
+import PlayerProfile from './pages/player/PlayerProfile';
+import MyTeams from './pages/player/MyTeams';
 
 function App() {
   // Check if Supabase is configured
@@ -39,13 +46,15 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
+    <>
+      <ToastProvider />
+      <Router>
+        <Routes>
         <Route
           path="/"
           element={
             <>
-              <Navbar />
+              <Header />
               <Landing />
               <Footer />
             </>
@@ -77,7 +86,7 @@ function App() {
           path="/pricing"
           element={
             <>
-              <Navbar />
+              <Header />
               <Pricing />
               <Footer />
             </>
@@ -88,10 +97,59 @@ function App() {
           path="/players"
           element={
             <>
-              <Navbar />
-              <Players />
+              <Header />
+              <PlayerMarketplace />
               <Footer />
             </>
+          }
+        />
+
+        <Route
+          path="/players/:id"
+          element={
+            <>
+              <Header />
+              <PlayerProfileView />
+              <Footer />
+            </>
+          }
+        />
+
+        <Route
+          path="/player/profile/create"
+          element={
+            <ProtectedRoute>
+              <Header />
+              <PlayerProfileCreate />
+              <Footer />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/player/profile"
+          element={
+            <ProtectedRoute>
+              <OnboardingCheck>
+                <Header />
+                <PlayerProfile />
+                <Footer />
+              </OnboardingCheck>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/player/teams"
+          element={
+            <ProtectedRoute>
+              <OnboardingCheck>
+                <Header />
+                <DashboardLayout>
+                  <MyTeams />
+                </DashboardLayout>
+              </OnboardingCheck>
+            </ProtectedRoute>
           }
         />
 
@@ -99,7 +157,7 @@ function App() {
           path="/tryouts"
           element={
             <>
-              <Navbar />
+              <Header />
               <Tryouts />
               <Footer />
             </>
@@ -110,7 +168,7 @@ function App() {
           path="/tournaments"
           element={
             <>
-              <Navbar />
+              <Header />
               <Tournaments />
               <Footer />
             </>
@@ -122,7 +180,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TournamentCreate />
                 <Footer />
               </OnboardingCheck>
@@ -134,7 +192,7 @@ function App() {
           path="/tournaments/:id"
           element={
             <>
-              <Navbar />
+              <Header />
               <TournamentDetails />
               <Footer />
             </>
@@ -146,7 +204,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TournamentEdit />
                 <Footer />
               </OnboardingCheck>
@@ -159,8 +217,21 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TournamentApplications />
+                <Footer />
+              </OnboardingCheck>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tournaments/:id/guest-players"
+          element={
+            <ProtectedRoute>
+              <OnboardingCheck>
+                <Header />
+                <TournamentGuestPlayers />
                 <Footer />
               </OnboardingCheck>
             </ProtectedRoute>
@@ -172,7 +243,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <DashboardLayout>
                   <Dashboard />
                 </DashboardLayout>
@@ -186,7 +257,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <Messages />
                 <Footer />
               </OnboardingCheck>
@@ -199,7 +270,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <Calendar />
                 <Footer />
               </OnboardingCheck>
@@ -208,11 +279,16 @@ function App() {
         />
 
         <Route
+          path="/teams"
+          element={<Navigate to="/dashboard" replace />}
+        />
+
+        <Route
           path="/teams/new"
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TeamCreate />
                 <Footer />
               </OnboardingCheck>
@@ -225,7 +301,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TeamDetails />
                 <Footer />
               </OnboardingCheck>
@@ -238,7 +314,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <Profile />
                 <Footer />
               </OnboardingCheck>
@@ -251,7 +327,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <TryoutApplications />
                 <Footer />
               </OnboardingCheck>
@@ -264,7 +340,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <Settings />
                 <Footer />
               </OnboardingCheck>
@@ -277,7 +353,7 @@ function App() {
           element={
             <ProtectedRoute>
               <OnboardingCheck>
-                <Navbar />
+                <Header />
                 <WebsiteBuilder />
                 <Footer />
               </OnboardingCheck>
@@ -296,8 +372,9 @@ function App() {
           }
         />
 
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </>
   );
 }
 

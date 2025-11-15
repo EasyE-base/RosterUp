@@ -1,6 +1,7 @@
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { useSelectedElement } from '../../../contexts/SelectedElementContext';
 
 export type InlineEditorType = 'text' | 'heading' | 'image' | 'button' | 'email' | 'phone' | 'textarea';
 
@@ -25,7 +26,20 @@ export default function InlineEditor({
 }: InlineEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [localValue, setLocalValue] = useState(value);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentEditableRef = useRef<HTMLDivElement>(null);
+  const { selectedElement } = useSelectedElement();
+
+  // Disable inline editing if an element is selected for styling (not in editing mode)
+  const isElementSelected = selectedElement && !selectedElement.isEditing;
+
+  // Update local value when prop value changes (but only when not focused)
+  useEffect(() => {
+    if (document.activeElement !== contentEditableRef.current) {
+      setLocalValue(value);
+    }
+  }, [value]);
 
   // Handle image upload to Supabase Storage
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -100,11 +114,47 @@ export default function InlineEditor({
           </div>
         ) : (
           <div
-            className="w-full h-64 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+            className={`w-full h-64 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${
+              editMode
+                ? 'border-blue-400 bg-blue-500/10 cursor-pointer hover:border-blue-300 hover:bg-blue-500/20'
+                : 'border-slate-700 bg-slate-800/30'
+            }`}
             onClick={() => editMode && fileInputRef.current?.click()}
           >
-            <Upload className="w-12 h-12 text-slate-500 mb-2" />
-            <p className="text-slate-400 text-sm">Click to upload image</p>
+            <div className="text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="p-4 rounded-full bg-blue-500/20">
+                  <Upload className="w-8 h-8 text-blue-400" />
+                </div>
+              </div>
+              <div>
+                <p className="text-white font-semibold">
+                  {placeholder || 'Upload Image'}
+                </p>
+                <p className="text-slate-400 text-sm mt-1">
+                  Click to select an image from your computer
+                </p>
+              </div>
+              {editMode && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Uploading...
+                    </span>
+                  ) : (
+                    'Choose Image'
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -168,31 +218,26 @@ export default function InlineEditor({
     }
   };
 
-  // For simple text types, use contentEditable
+  // For simple text types, use input element
+  if (editMode && !isElementSelected) {
+    return (
+      <input
+        ref={contentEditableRef as any}
+        type={getInputType()}
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`${getDefaultClasses()} outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 bg-transparent border-0 w-auto ${className}`}
+        style={{ minWidth: '60px', maxWidth: '200px', width: `${Math.max(60, (localValue?.length || 0) * 8 + 20)}px`, ...style }}
+      />
+    );
+  }
+
+  // View mode - just display text
   return (
-    <div
-      contentEditable={editMode}
-      suppressContentEditableWarning
-      onInput={(e) => {
-        if (editMode) {
-          onChange(e.currentTarget.textContent || '');
-        }
-      }}
-      onBlur={(e) => {
-        // Ensure onChange is called on blur too
-        if (editMode) {
-          onChange(e.currentTarget.textContent || '');
-        }
-      }}
-      className={`${getDefaultClasses()} ${
-        editMode
-          ? 'outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 cursor-text'
-          : 'cursor-default'
-      } ${className}`}
-      style={style}
-      data-placeholder={placeholder}
-    >
-      {value}
-    </div>
+    <span className={`${getDefaultClasses()} ${className}`} style={style}>
+      {value || placeholder}
+    </span>
   );
 }

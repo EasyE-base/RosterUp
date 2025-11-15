@@ -2,6 +2,13 @@
   "version": "1.0.0",
   "templates": [
     {
+      "id": "navigation-center-logo-01",
+      "name": "Center Logo Navigation",
+      "description": "Professional navigation with center logo, social links, and split menu",
+      "preview_url": "/templates/assets/preview-navigation.jpg",
+      "file": "navigation.json"
+    },
+    {
       "id": "hero-sports-01",
       "name": "Sports Hero Section",
       "description": "Eye-catching hero section with team branding and call-to-action",
@@ -21,6 +28,27 @@
       "description": "Display upcoming games and events in a clean table format",
       "preview_url": "/templates/assets/preview-schedule.jpg",
       "file": "schedule.json"
+    },
+    {
+      "id": "commitments-sports-01",
+      "name": "Player Commitments",
+      "description": "Showcase college commitments with player profiles",
+      "preview_url": "/templates/assets/preview-commitments.jpg",
+      "file": "commitments.json"
+    },
+    {
+      "id": "gallery-sports-01",
+      "name": "Photo Gallery",
+      "description": "Responsive grid of team photos and action shots",
+      "preview_url": "/templates/assets/preview-gallery.jpg",
+      "file": "gallery.json"
+    },
+    {
+      "id": "roster-sports-01",
+      "name": "Team Roster",
+      "description": "Display team members with photos, positions, and bios",
+      "preview_url": "/templates/assets/preview-roster.jpg",
+      "file": "roster.json"
     },
     {
       "id": "contact-sports-01",

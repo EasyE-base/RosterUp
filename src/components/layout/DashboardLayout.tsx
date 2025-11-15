@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -8,11 +8,14 @@ import {
   MessageSquare,
   Trophy,
   Settings,
-  Bell,
-  Search,
   Globe,
   Swords,
+  UserCircle,
+  Target,
 } from 'lucide-react';
+import { Sidebar, SidebarBody, SidebarLink } from '../ui/sidebar';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -20,95 +23,100 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
-  const { organization } = useAuth();
+  const { organization, player } = useAuth();
+  const [open, setOpen] = useState(false);
 
-  const navigation = [
-    { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Tournaments', href: '/tournaments', icon: Swords },
-    { name: 'Website', href: '/website-builder', icon: Globe },
-    { name: 'Players', href: '/players', icon: Users },
-    { name: 'Calendar', href: '/calendar', icon: Calendar },
-    { name: 'Messages', href: '/messages', icon: MessageSquare },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  // Organization navigation
+  const organizationNavigation = [
+    { label: 'Overview', href: '/dashboard', icon: <LayoutDashboard className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Tournaments', href: '/tournaments', icon: <Swords className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Website', href: '/website-builder', icon: <Globe className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Players', href: '/players', icon: <Users className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Calendar', href: '/calendar', icon: <Calendar className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Messages', href: '/messages', icon: <MessageSquare className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Settings', href: '/settings', icon: <Settings className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
   ];
 
-  const isActive = (href: string) => location.pathname === href;
+  // Player navigation
+  const playerNavigation = [
+    { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'My Profile', href: '/player/profile', icon: <UserCircle className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Tryouts', href: '/tryouts', icon: <Target className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Tournaments', href: '/tournaments', icon: <Swords className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'My Teams', href: '/player/teams', icon: <Trophy className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Calendar', href: '/calendar', icon: <Calendar className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Messages', href: '/messages', icon: <MessageSquare className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+    { label: 'Settings', href: '/settings', icon: <Settings className="text-[rgb(134,142,150)] group-hover/sidebar:text-[rgb(0,113,227)] h-5 w-5 flex-shrink-0 transition-colors" /> },
+  ];
+
+  // Choose navigation based on user type
+  const navigation = player ? playerNavigation : organizationNavigation;
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <div className="flex h-screen pt-16">
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-slate-900/50 border-r border-slate-800/50">
-          <nav className="flex-1 px-4 py-6 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive(item.href)
-                      ? 'bg-gradient-to-r from-blue-500/20 to-cyan-400/20 text-blue-400 border border-blue-500/30'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <main className="flex-1 overflow-y-auto">
-          <div className="sticky top-16 z-10 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50">
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 max-w-lg">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search players, teams, events..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-slate-300 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4 ml-4">
-                  <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
-                    <Bell className="w-6 h-6" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                  </button>
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold">
-                    JD
-                  </div>
-                </div>
-              </div>
+    <div className="flex flex-col md:flex-row bg-[rgb(247,247,249)] w-full flex-1 h-screen overflow-hidden">
+      <Sidebar open={open} setOpen={setOpen}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+            {open ? <Logo /> : <LogoIcon />}
+            <div className="mt-8 flex flex-col gap-2">
+              {navigation.map((link, idx) => (
+                <SidebarLink key={idx} link={link} />
+              ))}
             </div>
           </div>
-
-          <div className="px-4 sm:px-6 lg:px-8 py-8">{children}</div>
-        </main>
-      </div>
-
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 z-50">
-        <div className="flex justify-around py-2">
-          {navigation.slice(0, 5).map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`flex flex-col items-center justify-center p-2 ${
-                  isActive(item.href) ? 'text-blue-400' : 'text-slate-400'
-                }`}
-              >
-                <Icon className="w-6 h-6" />
-                <span className="text-xs mt-1">{item.name}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+          <div>
+            <SidebarLink
+              link={{
+                label: organization?.name || player?.display_name || 'User',
+                href: '/settings',
+                icon: organization?.logo_url || player?.photo_url ? (
+                  <img
+                    src={organization?.logo_url || player?.photo_url || ''}
+                    className="h-7 w-7 flex-shrink-0 rounded-full object-cover"
+                    alt="Avatar"
+                  />
+                ) : (
+                  <div className="h-7 w-7 flex-shrink-0 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-xs font-bold">
+                    {(organization?.name || player?.display_name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                ),
+              }}
+            />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+      <main className="flex-1 overflow-y-auto pt-20 md:pt-0">
+        <div className="h-full">{children}</div>
+      </main>
     </div>
   );
 }
+
+const Logo = () => {
+  return (
+    <Link
+      to="/dashboard"
+      className="font-normal flex space-x-2 items-center text-sm text-[rgb(29,29,31)] py-1 relative z-20"
+    >
+      <div className="h-5 w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="font-medium text-[rgb(29,29,31)] whitespace-pre"
+      >
+        RosterUp
+      </motion.span>
+    </Link>
+  );
+};
+
+const LogoIcon = () => {
+  return (
+    <Link
+      to="/dashboard"
+      className="font-normal flex space-x-2 items-center text-sm text-[rgb(29,29,31)] py-1 relative z-20"
+    >
+      <div className="h-5 w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+    </Link>
+  );
+};

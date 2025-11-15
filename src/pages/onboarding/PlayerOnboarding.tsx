@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { User, Calendar, MapPin, Trophy, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { TRAVEL_SPORTS, getPositionsBySport } from '../../constants/playerConstants';
 
 export default function PlayerOnboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -18,7 +19,7 @@ export default function PlayerOnboarding() {
     state: '',
     country: 'USA',
     primary_sport: '',
-    primary_position: '',
+    primary_position: [] as string[],
     bio: '',
     parent_email: '',
   });
@@ -42,33 +43,54 @@ export default function PlayerOnboarding() {
     try {
       const age = calculateAge(formData.date_of_birth);
 
-      const { error: insertError } = await supabase.from('players').insert({
-        user_id: user?.id,
-        date_of_birth: formData.date_of_birth,
-        age,
-        gender: formData.gender,
-        city: formData.city,
-        state: formData.state,
-        country: formData.country,
-        location: `${formData.city}, ${formData.state}`,
-        primary_sport: formData.primary_sport,
-        primary_position: formData.primary_position,
-        bio: formData.bio,
-        parent_email: age < 18 ? formData.parent_email : null,
-      });
+      // Upsert player record (insert if doesn't exist, update if exists)
+      const { error: upsertError } = await supabase
+        .from('players')
+        .upsert({
+          user_id: user?.id,
+          date_of_birth: formData.date_of_birth,
+          age,
+          gender: formData.gender,
+          city: formData.city,
+          state: formData.state,
+          country: formData.country,
+          location: `${formData.city}, ${formData.state}`,
+          primary_sport: formData.primary_sport,
+          primary_position: formData.primary_position.join(', '), // Convert array to comma-separated string
+          bio: formData.bio,
+          parent_email: age < 18 ? formData.parent_email : null,
+          rating: 0,
+          profile_visibility: 'public'
+        }, {
+          onConflict: 'user_id'
+        });
 
-      if (insertError) throw insertError;
+      if (upsertError) throw upsertError;
+
+      // Refresh user data to load the updated player record
+      await refreshUserData();
 
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create player profile');
+      setError(err instanceof Error ? err.message : 'Failed to update player profile');
       setLoading(false);
     }
   };
 
-  const sports = ['Soccer', 'Basketball', 'Baseball', 'Football', 'Volleyball', 'Hockey', 'Tennis', 'Swimming', 'Track & Field', 'Other'];
-
   const age = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
+
+  // Get available positions based on selected sport
+  const availablePositions = formData.primary_sport ? getPositionsBySport(formData.primary_sport) : [];
+
+  // Handle position selection toggle
+  const togglePosition = (positionValue: string) => {
+    setFormData(prev => ({
+      ...prev,
+      primary_position: prev.primary_position.includes(positionValue)
+        ? prev.primary_position.filter(p => p !== positionValue)
+        : [...prev.primary_position, positionValue]
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
@@ -233,14 +255,18 @@ export default function PlayerOnboarding() {
                     <Trophy className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <select
                       value={formData.primary_sport}
-                      onChange={(e) => setFormData({ ...formData, primary_sport: e.target.value })}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        primary_sport: e.target.value,
+                        primary_position: [] // Clear positions when sport changes
+                      })}
                       className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                       required
                     >
                       <option value="">Select your sport</option>
-                      {sports.map((sport) => (
-                        <option key={sport} value={sport}>
-                          {sport}
+                      {TRAVEL_SPORTS.map((sport) => (
+                        <option key={sport.value} value={sport.value}>
+                          {sport.label}
                         </option>
                       ))}
                     </select>
@@ -249,16 +275,38 @@ export default function PlayerOnboarding() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Primary Position
+                    Positions You Play {formData.primary_position.length > 0 && (
+                      <span className="text-slate-400 text-xs">({formData.primary_position.length} selected)</span>
+                    )}
                   </label>
-                  <input
-                    type="text"
-                    value={formData.primary_position}
-                    onChange={(e) => setFormData({ ...formData, primary_position: e.target.value })}
-                    placeholder="e.g., Forward, Pitcher, Guard"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    required
-                  />
+                  {availablePositions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {availablePositions.map((position) => {
+                        const isSelected = formData.primary_position.includes(position.value);
+                        return (
+                          <button
+                            key={position.value}
+                            type="button"
+                            onClick={() => togglePosition(position.value)}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-400/30'
+                                : 'bg-slate-800/50 border border-slate-700 text-slate-300 hover:border-blue-500 hover:text-white'
+                            }`}
+                          >
+                            {position.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-400 text-sm">
+                      Please select a sport first to see available positions
+                    </div>
+                  )}
+                  {formData.primary_position.length === 0 && availablePositions.length > 0 && (
+                    <p className="mt-2 text-xs text-slate-500">Click on positions to select them</p>
+                  )}
                 </div>
 
                 <div>
@@ -274,6 +322,14 @@ export default function PlayerOnboarding() {
                   />
                 </div>
 
+                {formData.primary_position.length === 0 && (
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/50 rounded-lg">
+                    <p className="text-yellow-400 text-sm">
+                      Please select at least one position to continue
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex gap-4">
                   <button
                     type="button"
@@ -284,7 +340,7 @@ export default function PlayerOnboarding() {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || formData.primary_position.length === 0}
                     className="flex-1 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-cyan-400/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
                     {loading ? (

@@ -1,4 +1,9 @@
 import InlineEditor from '../InlineEditor';
+import ScrollReveal from '../../../animations/ScrollReveal';
+import { useTheme, useThemeAnimations } from '../../../../contexts/ThemeContext';
+import { getHeadingClasses, getBodyClasses } from '../../../../lib/typography-presets';
+import { motion } from 'framer-motion';
+import { Mail, Phone, MapPin, Send } from 'lucide-react';
 
 interface ContactSectionProps {
   content: {
@@ -20,40 +25,178 @@ interface ContactSectionProps {
 }
 
 export default function ContactSection({ content, styles = {}, editMode, onUpdate }: ContactSectionProps) {
+  const { theme, typography } = useTheme();
+  const animations = useThemeAnimations();
+
+  // Defensive coding: provide fallback values for required fields
+  const safeTitle = content?.title || 'Get In Touch';
+  const safeSubtitle = content?.subtitle || 'Have questions? We\'d love to hear from you';
+  const safeEmail = content?.email || 'info@example.com';
+  const safePhone = content?.phone || '(555) 123-4567';
+  const safeAddress = content?.address || '123 Main St, City, State 12345';
+  const safeSubmitText = content?.submit_text || 'Send Message';
+
   const updateField = (field: string, value: any) => {
     onUpdate({ ...content, [field]: value });
   };
 
+  const headingClasses = getHeadingClasses(typography, 'h2', 'bold', 'tight');
+  const subheadingClasses = getBodyClasses(typography, 'lg', 'normal');
+
   return (
-    <div className="px-8 py-20 bg-slate-900 text-white" style={{ ...styles }}>
-      <div className="max-w-4xl mx-auto text-center">
-        <InlineEditor value={content.title} onChange={(val) => updateField('title', val)} type="heading" editMode={editMode} className="text-4xl font-bold mb-4" />
-        <InlineEditor value={content.subtitle} onChange={(val) => updateField('subtitle', val)} type="text" editMode={editMode} className="text-lg text-slate-300 mb-12" />
-
-        <div className="grid md:grid-cols-2 gap-8 text-left">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-slate-400 uppercase tracking-wide mb-1">Email</p>
-              <InlineEditor value={content.email} onChange={(val) => updateField('email', val)} type="email" editMode={editMode} className="text-blue-400 hover:text-blue-300" />
-            </div>
-            <div>
-              <p className="text-sm text-slate-400 uppercase tracking-wide mb-1">Phone</p>
-              <InlineEditor value={content.phone} onChange={(val) => updateField('phone', val)} type="phone" editMode={editMode} className="text-blue-400 hover:text-blue-300" />
-            </div>
-            <div>
-              <p className="text-sm text-slate-400 uppercase tracking-wide mb-1">Address</p>
-              <InlineEditor value={content.address} onChange={(val) => updateField('address', val)} type="text" editMode={editMode} className="text-slate-300" />
-            </div>
+    <div className={theme.spacing.sectionPadding} style={{ backgroundColor: theme.colors.primary, ...styles }}>
+      <div className={`${theme.spacing.containerMaxWidth} mx-auto`}>
+        <ScrollReveal direction="up" delay={0.1} duration={animations.duration / 1000}>
+          <div className="text-center mb-12 space-y-3">
+            <InlineEditor
+              value={safeTitle}
+              onChange={(val) => updateField('title', val)}
+              type="heading"
+              editMode={editMode}
+              className={headingClasses}
+              style={{ color: theme.colors.textInverse }}
+            />
+            <InlineEditor
+              value={safeSubtitle}
+              onChange={(val) => updateField('subtitle', val)}
+              type="text"
+              editMode={editMode}
+              className={subheadingClasses}
+              style={{ color: theme.colors.textInverse, opacity: 0.9 }}
+            />
           </div>
+        </ScrollReveal>
 
-          <div className="bg-slate-800 rounded-xl p-6">
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <input type="text" placeholder="Your Name" className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500" />
-              <input type="email" placeholder="Email Address" className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500" />
-              <textarea placeholder="Message" rows={4} className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 resize-none" />
-              <InlineEditor value={content.submit_text || 'Send Message'} onChange={(val) => updateField('submit_text', val)} type="button" editMode={editMode} className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold" />
-            </form>
-          </div>
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Contact Information */}
+          <ScrollReveal direction="left" delay={0.2} duration={animations.duration / 1000}>
+            <div className="space-y-6">
+              {/* Email */}
+              <motion.div
+                className="flex items-start gap-4 p-4 rounded-xl"
+                style={{ background: `${theme.colors.textInverse}10` }}
+                whileHover={{ x: editMode ? 0 : 5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-lg" style={{ backgroundColor: theme.colors.accent }}>
+                  <Mail className="w-5 h-5" style={{ color: theme.colors.textInverse }} />
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-wide mb-1" style={{ color: theme.colors.textInverse, opacity: 0.7 }}>Email</p>
+                  <InlineEditor
+                    value={safeEmail}
+                    onChange={(val) => updateField('email', val)}
+                    type="email"
+                    editMode={editMode}
+                    className="text-lg font-semibold"
+                    style={{ color: theme.colors.accent }}
+                  />
+                </div>
+              </motion.div>
+
+              {/* Phone */}
+              <motion.div
+                className="flex items-start gap-4 p-4 rounded-xl"
+                style={{ background: `${theme.colors.textInverse}10` }}
+                whileHover={{ x: editMode ? 0 : 5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-lg" style={{ backgroundColor: theme.colors.accent }}>
+                  <Phone className="w-5 h-5" style={{ color: theme.colors.textInverse }} />
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-wide mb-1" style={{ color: theme.colors.textInverse, opacity: 0.7 }}>Phone</p>
+                  <InlineEditor
+                    value={safePhone}
+                    onChange={(val) => updateField('phone', val)}
+                    type="phone"
+                    editMode={editMode}
+                    className="text-lg font-semibold"
+                    style={{ color: theme.colors.accent }}
+                  />
+                </div>
+              </motion.div>
+
+              {/* Address */}
+              <motion.div
+                className="flex items-start gap-4 p-4 rounded-xl"
+                style={{ background: `${theme.colors.textInverse}10` }}
+                whileHover={{ x: editMode ? 0 : 5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-lg" style={{ backgroundColor: theme.colors.accent }}>
+                  <MapPin className="w-5 h-5" style={{ color: theme.colors.textInverse }} />
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-wide mb-1" style={{ color: theme.colors.textInverse, opacity: 0.7 }}>Address</p>
+                  <InlineEditor
+                    value={safeAddress}
+                    onChange={(val) => updateField('address', val)}
+                    type="text"
+                    editMode={editMode}
+                    className="text-lg"
+                    style={{ color: theme.colors.textInverse }}
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </ScrollReveal>
+
+          {/* Contact Form */}
+          <ScrollReveal direction="right" delay={0.3} duration={animations.duration / 1000}>
+            <motion.div
+              className="rounded-2xl p-8"
+              style={{
+                background: `linear-gradient(135deg, ${theme.colors.textInverse}15, ${theme.colors.textInverse}10)`,
+                border: `2px solid ${theme.colors.textInverse}20`,
+              }}
+            >
+              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  className="w-full px-4 py-3 rounded-lg text-white placeholder-opacity-50 focus:outline-none focus:ring-2 transition-all"
+                  style={{
+                    backgroundColor: `${theme.colors.primaryDark}80`,
+                    border: `1px solid ${theme.colors.textInverse}20`,
+                    color: theme.colors.textInverse,
+                  }}
+                />
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  className="w-full px-4 py-3 rounded-lg text-white placeholder-opacity-50 focus:outline-none focus:ring-2 transition-all"
+                  style={{
+                    backgroundColor: `${theme.colors.primaryDark}80`,
+                    border: `1px solid ${theme.colors.textInverse}20`,
+                    color: theme.colors.textInverse,
+                  }}
+                />
+                <textarea
+                  placeholder="Message"
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg text-white placeholder-opacity-50 focus:outline-none focus:ring-2 transition-all resize-none"
+                  style={{
+                    backgroundColor: `${theme.colors.primaryDark}80`,
+                    border: `1px solid ${theme.colors.textInverse}20`,
+                    color: theme.colors.textInverse,
+                  }}
+                />
+                <motion.div whileHover={{ scale: editMode ? 1 : 1.05 }} whileTap={{ scale: editMode ? 1 : 0.98 }}>
+                  <div className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl font-semibold transition-all" style={{ backgroundColor: theme.colors.accent, color: theme.colors.textInverse }}>
+                    <Send className="w-4 h-4" />
+                    <InlineEditor
+                      value={safeSubmitText}
+                      onChange={(val) => updateField('submit_text', val)}
+                      type="button"
+                      editMode={editMode}
+                      className="inline"
+                    />
+                  </div>
+                </motion.div>
+              </form>
+            </motion.div>
+          </ScrollReveal>
         </div>
       </div>
     </div>

@@ -598,7 +598,6 @@ export function CanvasMode({ iframeRef: externalIframeRef, htmlContent = '', ena
     editorMode,
     hasHybridHTML: !!htmlContent,
     htmlContentLength: htmlContent?.length || 0,
-    htmlContentLength: htmlContent?.length || 0,
     effectiveHTMLLength: effectiveHTML?.length || 0,
     usingHybrid: editorMode === 'canvas' && !!htmlContent,
   });

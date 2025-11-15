@@ -1,0 +1,39 @@
+{
+  "id": "hero-premium-01",
+  "name": "Premium Hero Section",
+  "description": "Eye-catching hero with video background, parallax effects, and scroll animations",
+  "version": "2.0.0",
+  "theme_preset": "dark_athletic",
+  "sections": [
+    {
+      "name": "Hero Banner",
+      "section_type": "hero_premium",
+      "content": {
+        "heading": "Welcome to {{org_name}}",
+        "subheading": "Building Champions On and Off the Field Since 2010",
+        "cta_text": "Join Our Team",
+        "cta_link": "/tryouts",
+        "background_image": "/templates/assets/hero-bg-premium.jpg",
+        "video_background": "",
+        "layout_variant": "centered",
+        "enable_parallax": true
+      },
+      "styles": {
+        "minHeight": "100vh"
+      },
+      "animations": {
+        "enabled": true,
+        "entrance": "fade-up",
+        "stagger_delay": 200
+      },
+      "version": "2.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-01-31",
+    "tags": ["hero", "premium", "video", "parallax", "sports"],
+    "performance_notes": "Video backgrounds auto-disabled on mobile. Parallax disabled on reduced motion preference.",
+    "licensing": "Background images sourced from Unsplash (free license). Video placeholder requires user-provided content."
+  }
+}

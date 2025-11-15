@@ -85,7 +85,7 @@ export default function TeamCreate() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-slate-950 pt-32 pb-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Create New Team</h1>

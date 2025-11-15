@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Globe, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Globe, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { TRAVEL_SPORTS } from '../../constants/playerConstants';
 
 export default function OrganizationOnboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     name: '',
+    primary_sport: '',
     description: '',
     website: '',
     city: '',
@@ -34,7 +36,8 @@ export default function OrganizationOnboarding() {
         .maybeSingle();
 
       if (existingOrg) {
-        // Organization already exists, just navigate to dashboard
+        // Organization already exists, refresh data and navigate to dashboard
+        await refreshUserData();
         navigate('/dashboard');
         return;
       }
@@ -43,6 +46,7 @@ export default function OrganizationOnboarding() {
       const { error: insertError } = await supabase.from('organizations').insert({
         user_id: user?.id,
         name: formData.name,
+        primary_sport: formData.primary_sport || null,
         description: formData.description,
         website: formData.website,
         city: formData.city,
@@ -52,6 +56,9 @@ export default function OrganizationOnboarding() {
       });
 
       if (insertError) throw insertError;
+
+      // Refresh user data to load the new organization record
+      await refreshUserData();
 
       navigate('/dashboard');
     } catch (err) {
@@ -109,6 +116,31 @@ export default function OrganizationOnboarding() {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Primary Sport *
+                  </label>
+                  <div className="relative">
+                    <Trophy className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <select
+                      value={formData.primary_sport}
+                      onChange={(e) => setFormData({ ...formData, primary_sport: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                      required
+                    >
+                      <option value="">Select your primary sport</option>
+                      {TRAVEL_SPORTS.map((sport) => (
+                        <option key={sport.value} value={sport.value}>
+                          {sport.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    This determines which players you'll see in the marketplace
+                  </p>
                 </div>
 
                 <div>

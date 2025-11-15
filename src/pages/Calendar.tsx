@@ -13,6 +13,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, CalendarEvent, Team } from '../lib/supabase';
+import {
+  AppleHeading,
+  AppleButton,
+  AppleCard,
+  AppleSelect,
+  AppleInput,
+  AppleTextarea,
+  AppleBadge,
+  AppleStatCard,
+  AppleEmptyState,
+  AppleModal,
+} from '@/components/apple';
 
 interface EventWithTeam extends CalendarEvent {
   teams: {
@@ -26,8 +38,10 @@ export default function Calendar() {
   const [events, setEvents] = useState<EventWithTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
-  const { organization } = useAuth();
+  const { organization, player } = useAuth();
 
   const [formData, setFormData] = useState({
     team_id: '',
@@ -46,11 +60,15 @@ export default function Calendar() {
   const eventTypes = ['game', 'practice', 'tryout', 'meeting', 'other'];
 
   useEffect(() => {
-    loadEvents();
-    if (organization) {
-      loadTeams();
+    if (player) {
+      loadPlayerEvents();
+    } else {
+      loadEvents();
+      if (organization) {
+        loadTeams();
+      }
     }
-  }, [organization, currentDate]);
+  }, [organization, player, currentDate]);
 
   const loadEvents = async () => {
     try {
@@ -58,18 +76,49 @@ export default function Calendar() {
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      let query = supabase
+      // Fetch regular events
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('*, teams(name)')
         .gte('date', startOfMonth.toISOString().split('T')[0])
         .lte('date', endOfMonth.toISOString().split('T')[0])
         .order('date', { ascending: true });
 
-      const { data, error } = await query;
+      if (eventsError) throw eventsError;
 
-      if (error) throw error;
+      // Fetch tryouts and convert them to calendar events format
+      const { data: tryoutsData, error: tryoutsError } = await supabase
+        .from('tryouts')
+        .select('*, teams(name)')
+        .gte('date', startOfMonth.toISOString().split('T')[0])
+        .lte('date', endOfMonth.toISOString().split('T')[0])
+        .order('date', { ascending: true });
 
-      setEvents((data as EventWithTeam[]) || []);
+      if (tryoutsError) throw tryoutsError;
+
+      // Convert tryouts to calendar event format
+      const tryoutsAsEvents = (tryoutsData || []).map((tryout) => ({
+        id: tryout.id,
+        team_id: tryout.team_id,
+        title: tryout.title,
+        description: tryout.description,
+        event_type: 'tryout',
+        date: tryout.date,
+        start_time: tryout.start_time,
+        end_time: tryout.end_time,
+        location: tryout.location,
+        created_at: tryout.created_at,
+        updated_at: tryout.updated_at,
+        teams: tryout.teams,
+      }));
+
+      // Combine events and tryouts
+      const allEvents = [...(eventsData || []), ...tryoutsAsEvents];
+
+      // Sort by date
+      allEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      setEvents(allEvents as EventWithTeam[]);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
@@ -92,6 +141,131 @@ export default function Calendar() {
       setTeams(data || []);
     } catch (error) {
       console.error('Error loading teams:', error);
+    }
+  };
+
+  const loadPlayerEvents = async () => {
+    try {
+      setLoading(true);
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+      if (!player?.id) return;
+
+      // Get teams the player is a member of
+      const { data: memberships, error: membershipsError } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('player_id', player.id)
+        .eq('status', 'active');
+
+      if (membershipsError) throw membershipsError;
+
+      const teamIds = memberships?.map(m => m.team_id) || [];
+
+      // Fetch events from player's teams
+      const { data: eventsData, error: eventsError } = teamIds.length > 0
+        ? await supabase
+            .from('events')
+            .select('*, teams(name)')
+            .in('team_id', teamIds)
+            .gte('date', startOfMonth.toISOString().split('T')[0])
+            .lte('date', endOfMonth.toISOString().split('T')[0])
+            .order('date', { ascending: true })
+        : { data: [], error: null };
+
+      if (eventsError) throw eventsError;
+
+      // Fetch tryouts player has applied to
+      const { data: applications, error: appsError } = await supabase
+        .from('tryout_applications')
+        .select('tryout_id')
+        .eq('player_id', player.id);
+
+      if (appsError) throw appsError;
+
+      const tryoutIds = applications?.map(a => a.tryout_id) || [];
+
+      // Fetch applied tryouts as events
+      const { data: appliedTryouts, error: tryoutsError } = tryoutIds.length > 0
+        ? await supabase
+            .from('tryouts')
+            .select('*, teams(name)')
+            .in('id', tryoutIds)
+            .gte('date', startOfMonth.toISOString().split('T')[0])
+            .lte('date', endOfMonth.toISOString().split('T')[0])
+            .order('date', { ascending: true })
+        : { data: [], error: null };
+
+      if (tryoutsError) throw tryoutsError;
+
+      // Fetch tournaments player has registered for as guest
+      const { data: guestRegs, error: guestError } = await supabase
+        .from('guest_players')
+        .select(`
+          tournament_id,
+          tournaments:tournament_id (
+            id,
+            title,
+            start_date,
+            end_date,
+            location
+          )
+        `)
+        .eq('player_id', player.id)
+        .in('status', ['available', 'invited', 'accepted']);
+
+      if (guestError) throw guestError;
+
+      // Convert tryouts to calendar event format
+      const tryoutsAsEvents = (appliedTryouts || []).map((tryout) => ({
+        id: tryout.id,
+        team_id: tryout.team_id,
+        title: tryout.title,
+        description: tryout.description,
+        event_type: 'tryout',
+        date: tryout.date,
+        start_time: tryout.start_time,
+        end_time: tryout.end_time,
+        location: tryout.location,
+        created_at: tryout.created_at,
+        updated_at: tryout.updated_at,
+        teams: tryout.teams || { name: 'Tryout' },
+      }));
+
+      // Convert tournaments to calendar events
+      const tournamentsAsEvents = (guestRegs || [])
+        .filter(reg => reg.tournaments)
+        .map((reg: any) => ({
+          id: reg.tournament_id,
+          team_id: null,
+          title: reg.tournaments.title,
+          description: 'Tournament (Guest Player)',
+          event_type: 'other',
+          date: reg.tournaments.start_date,
+          start_time: '09:00',
+          end_time: null,
+          location: reg.tournaments.location,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          teams: { name: 'Tournament' },
+        }));
+
+      // Combine all events
+      const allEvents = [
+        ...(eventsData || []),
+        ...tryoutsAsEvents,
+        ...tournamentsAsEvents,
+      ];
+
+      // Sort by date
+      allEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      setEvents(allEvents as EventWithTeam[]);
+    } catch (error) {
+      console.error('Error loading player events:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -173,15 +347,15 @@ export default function Calendar() {
   const getEventColor = (type: string) => {
     switch (type) {
       case 'game':
-        return 'bg-blue-500/20 border-blue-500/50 text-blue-400';
+        return 'bg-blue-50 border-blue-300 text-blue-700';
       case 'practice':
-        return 'bg-green-500/20 border-green-500/50 text-green-400';
+        return 'bg-green-50 border-green-300 text-green-700';
       case 'tryout':
-        return 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400';
+        return 'bg-cyan-50 border-cyan-300 text-cyan-700';
       case 'meeting':
-        return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400';
+        return 'bg-yellow-50 border-yellow-300 text-yellow-700';
       default:
-        return 'bg-slate-500/20 border-slate-500/50 text-slate-400';
+        return 'bg-slate-100 border-slate-300 text-slate-700';
     }
   };
 
@@ -202,73 +376,76 @@ export default function Calendar() {
     });
   };
 
+  const handleDayClick = (date: Date | null) => {
+    if (date) {
+      setSelectedDate(date);
+      setShowDayModal(true);
+    }
+  };
+
   const days = getDaysInMonth(currentDate);
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-[rgb(251,251,253)] pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Calendar</h1>
-            <p className="text-slate-400">Manage your schedule and events</p>
+            <AppleHeading level={1} size="section">
+              Calendar
+            </AppleHeading>
+            <p className="text-lg text-[rgb(134,142,150)] mt-2">Manage your schedule and events</p>
           </div>
           {organization && (
-            <button
+            <AppleButton
+              variant="gradient"
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center space-x-2 px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-medium rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              leftIcon={<Plus className="w-5 h-5" />}
             >
-              <Plus className="w-5 h-5" />
-              <span>Add Event</span>
-            </button>
+              Add Event
+            </AppleButton>
           )}
         </div>
 
-        <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 mb-6">
+        <AppleCard variant="default" padding="lg" className="mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
-              <button
+              <AppleButton
+                variant="outline"
+                size="sm"
                 onClick={previousMonth}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-2xl font-bold text-white">
+                leftIcon={<ChevronLeft className="w-5 h-5" />}
+              />
+              <h2 className="text-2xl font-bold text-[rgb(29,29,31)]">
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h2>
-              <button
+              <AppleButton
+                variant="outline"
+                size="sm"
                 onClick={nextMonth}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+                leftIcon={<ChevronRight className="w-5 h-5" />}
+              />
             </div>
             <div className="flex space-x-2">
-              <button
+              <AppleButton
+                variant={view === 'month' ? 'primary' : 'outline'}
+                size="sm"
                 onClick={() => setView('month')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  view === 'month'
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
               >
                 Month
-              </button>
-              <button
+              </AppleButton>
+              <AppleButton
+                variant={view === 'agenda' ? 'primary' : 'outline'}
+                size="sm"
                 onClick={() => setView('agenda')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  view === 'agenda'
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
               >
                 Agenda
-              </button>
+              </AppleButton>
             </div>
           </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
             </div>
           ) : view === 'month' ? (
             <div>
@@ -276,7 +453,7 @@ export default function Calendar() {
                 {daysOfWeek.map((day) => (
                   <div
                     key={day}
-                    className="text-center text-sm font-semibold text-slate-400 py-2"
+                    className="text-center text-sm font-semibold text-[rgb(134,142,150)] py-2"
                   >
                     {day}
                   </div>
@@ -294,17 +471,18 @@ export default function Calendar() {
                   return (
                     <div
                       key={index}
-                      className={`min-h-24 p-2 rounded-lg border ${
+                      onClick={() => handleDayClick(day)}
+                      className={`min-h-24 p-2 rounded-lg border-[1.5px] ${
                         day
-                          ? 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50 cursor-pointer'
+                          ? 'bg-white border-slate-200 hover:border-[rgb(0,113,227)] cursor-pointer'
                           : 'bg-transparent border-transparent'
-                      } ${isToday ? 'ring-2 ring-blue-500' : ''} transition-all`}
+                      } ${isToday ? 'ring-2 ring-[rgb(0,113,227)]' : ''} transition-all`}
                     >
                       {day && (
                         <>
                           <div
                             className={`text-sm font-semibold mb-1 ${
-                              isToday ? 'text-blue-400' : 'text-slate-300'
+                              isToday ? 'text-[rgb(0,113,227)]' : 'text-[rgb(29,29,31)]'
                             }`}
                           >
                             {day.getDate()}
@@ -313,7 +491,7 @@ export default function Calendar() {
                             {dayEvents.slice(0, 2).map((event) => (
                               <div
                                 key={event.id}
-                                className={`text-xs px-2 py-1 rounded border ${getEventColor(
+                                className={`text-xs px-2 py-1 rounded border-[1.5px] ${getEventColor(
                                   event.event_type
                                 )} truncate`}
                                 title={event.title}
@@ -322,7 +500,7 @@ export default function Calendar() {
                               </div>
                             ))}
                             {dayEvents.length > 2 && (
-                              <div className="text-xs text-slate-400 px-2">
+                              <div className="text-xs text-[rgb(134,142,150)] px-2">
                                 +{dayEvents.length - 2} more
                               </div>
                             )}
@@ -337,32 +515,35 @@ export default function Calendar() {
           ) : (
             <div className="space-y-4">
               {events.length === 0 ? (
-                <div className="text-center py-20">
-                  <CalendarIcon className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">No events this month</h3>
-                  <p className="text-slate-400">Create your first event to get started</p>
-                </div>
+                <AppleEmptyState
+                  icon={<CalendarIcon className="w-16 h-16" />}
+                  title="No events this month"
+                  description="Create your first event to get started"
+                  iconColor="blue"
+                />
               ) : (
                 events.map((event) => (
-                  <div
-                    key={event.id}
-                    className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 hover:bg-slate-800 transition-all"
-                  >
+                  <AppleCard key={event.id} variant="default" padding="md" hover>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
-                          <span
-                            className={`px-3 py-1 text-xs font-medium rounded-full border ${getEventColor(
-                              event.event_type
-                            )}`}
+                          <AppleBadge
+                            variant={
+                              event.event_type === 'game' ? 'primary' :
+                              event.event_type === 'practice' ? 'success' :
+                              event.event_type === 'tryout' ? 'info' :
+                              event.event_type === 'meeting' ? 'warning' :
+                              'default'
+                            }
+                            size="sm"
                           >
                             {event.event_type.charAt(0).toUpperCase() + event.event_type.slice(1)}
-                          </span>
-                          <span className="text-sm text-slate-400">{formatDate(event.date)}</span>
+                          </AppleBadge>
+                          <span className="text-sm text-[rgb(134,142,150)]">{formatDate(event.date)}</span>
                         </div>
-                        <h3 className="text-lg font-semibold text-white mb-2">{event.title}</h3>
+                        <h3 className="text-lg font-semibold text-[rgb(29,29,31)] mb-2">{event.title}</h3>
                         <div className="space-y-1">
-                          <div className="flex items-center text-sm text-slate-400">
+                          <div className="flex items-center text-sm text-[rgb(134,142,150)]">
                             <Clock className="w-4 h-4 mr-2" />
                             <span>
                               {formatTime(event.start_time)}
@@ -370,232 +551,262 @@ export default function Calendar() {
                             </span>
                           </div>
                           {event.location && (
-                            <div className="flex items-center text-sm text-slate-400">
+                            <div className="flex items-center text-sm text-[rgb(134,142,150)]">
                               <MapPin className="w-4 h-4 mr-2" />
                               <span>{event.location}</span>
                             </div>
                           )}
-                          <div className="flex items-center text-sm text-slate-400">
+                          <div className="flex items-center text-sm text-[rgb(134,142,150)]">
                             <Users className="w-4 h-4 mr-2" />
                             <span>{event.teams.name}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </AppleCard>
                 ))
               )}
             </div>
           )}
-        </div>
+        </AppleCard>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <h3 className="text-white font-semibold">Games</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {events.filter((e) => e.event_type === 'game').length}
-            </p>
-            <p className="text-sm text-slate-400 mt-1">This month</p>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <h3 className="text-white font-semibold">Practices</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {events.filter((e) => e.event_type === 'practice').length}
-            </p>
-            <p className="text-sm text-slate-400 mt-1">This month</p>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
-              <h3 className="text-white font-semibold">Tryouts</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {events.filter((e) => e.event_type === 'tryout').length}
-            </p>
-            <p className="text-sm text-slate-400 mt-1">This month</p>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <h3 className="text-white font-semibold">Meetings</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {events.filter((e) => e.event_type === 'meeting').length}
-            </p>
-            <p className="text-sm text-slate-400 mt-1">This month</p>
-          </div>
+          <AppleStatCard
+            label="Games"
+            value={events.filter((e) => e.event_type === 'game').length}
+            icon={<div className="w-3 h-3 bg-blue-500 rounded-full"></div>}
+            iconColor="blue"
+            animateOnView
+          />
+          <AppleStatCard
+            label="Practices"
+            value={events.filter((e) => e.event_type === 'practice').length}
+            icon={<div className="w-3 h-3 bg-green-500 rounded-full"></div>}
+            iconColor="green"
+            animateOnView
+            delay={0.1}
+          />
+          <AppleStatCard
+            label="Tryouts"
+            value={events.filter((e) => e.event_type === 'tryout').length}
+            icon={<div className="w-3 h-3 bg-cyan-500 rounded-full"></div>}
+            iconColor="cyan"
+            animateOnView
+            delay={0.2}
+          />
+          <AppleStatCard
+            label="Meetings"
+            value={events.filter((e) => e.event_type === 'meeting').length}
+            icon={<div className="w-3 h-3 bg-yellow-500 rounded-full"></div>}
+            iconColor="yellow"
+            animateOnView
+            delay={0.3}
+          />
         </div>
       </div>
 
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Create New Event</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+      {/* Create Event Modal */}
+      <AppleModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Event"
+        size="lg"
+      >
+        <form onSubmit={handleCreateEvent} className="space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border-[1.5px] border-red-200 rounded-lg flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
+          )}
 
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-6">
-              {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
+          <AppleSelect
+            label="Team"
+            value={formData.team_id}
+            onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+            options={[
+              { value: '', label: 'Select a team' },
+              ...teams.map((team) => ({ value: team.id, label: `${team.name} - ${team.sport}` })),
+            ]}
+            fullWidth
+            required
+          />
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Team *</label>
-                <select
-                  value={formData.team_id}
-                  onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select a team</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name} - {team.sport}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <AppleInput
+            type="text"
+            label="Title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder="e.g., Practice Session, Game vs Eagles"
+            fullWidth
+            required
+          />
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Title *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="e.g., Practice Session, Game vs Eagles"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  required
-                />
-              </div>
+          <AppleSelect
+            label="Event Type"
+            value={formData.event_type}
+            onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+            options={eventTypes.map((type) => ({
+              value: type,
+              label: type.charAt(0).toUpperCase() + type.slice(1),
+            }))}
+            fullWidth
+            required
+          />
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Event Type *
-                </label>
-                <select
-                  value={formData.event_type}
-                  onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  {eventTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Date *</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="e.g., Central Park Field 2"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Additional details about the event..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 bg-slate-800/50 border border-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitLoading}
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                >
-                  {submitLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Creating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CalendarIcon className="w-5 h-5" />
-                      <span>Create Event</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <AppleInput
+              type="date"
+              label="Date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              fullWidth
+              required
+            />
+            <AppleInput
+              type="time"
+              label="Start Time"
+              value={formData.start_time}
+              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+              fullWidth
+              required
+            />
+            <AppleInput
+              type="time"
+              label="End Time"
+              value={formData.end_time}
+              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+              fullWidth
+            />
           </div>
-        </div>
-      )}
+
+          <AppleInput
+            type="text"
+            label="Location"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="e.g., Central Park Field 2"
+            fullWidth
+          />
+
+          <AppleTextarea
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="Additional details about the event..."
+            rows={3}
+            fullWidth
+          />
+
+          <div className="flex gap-4 pt-4">
+            <AppleButton
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreateModal(false)}
+              fullWidth
+            >
+              Cancel
+            </AppleButton>
+            <AppleButton
+              type="submit"
+              variant="gradient"
+              disabled={submitLoading}
+              leftIcon={submitLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CalendarIcon className="w-5 h-5" />}
+              fullWidth
+            >
+              {submitLoading ? 'Creating...' : 'Create Event'}
+            </AppleButton>
+          </div>
+        </form>
+      </AppleModal>
+
+      {/* Day Events Modal */}
+      <AppleModal
+        isOpen={showDayModal}
+        onClose={() => setShowDayModal(false)}
+        title={selectedDate ? selectedDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }) : ''}
+        size="lg"
+      >
+        {selectedDate && (
+          <>
+            <p className="text-[rgb(134,142,150)] text-sm mb-6">
+              {getEventsForDate(selectedDate).length} event
+              {getEventsForDate(selectedDate).length !== 1 ? 's' : ''}
+            </p>
+
+            {getEventsForDate(selectedDate).length === 0 ? (
+              <AppleEmptyState
+                icon={<CalendarIcon className="w-16 h-16" />}
+                title="No events scheduled"
+                description="No events scheduled for this day"
+                iconColor="blue"
+              />
+            ) : (
+              <div className="space-y-4">
+                {getEventsForDate(selectedDate).map((event) => (
+                  <div
+                    key={event.id}
+                    className={`border-[1.5px] rounded-lg p-5 ${getEventColor(event.event_type)}`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <AppleBadge
+                            variant={
+                              event.event_type === 'game' ? 'primary' :
+                              event.event_type === 'practice' ? 'success' :
+                              event.event_type === 'tryout' ? 'info' :
+                              event.event_type === 'meeting' ? 'warning' :
+                              'default'
+                            }
+                            size="sm"
+                          >
+                            {event.event_type.toUpperCase()}
+                          </AppleBadge>
+                        </div>
+                        <h3 className="text-xl font-bold text-[rgb(29,29,31)] mb-1">{event.title}</h3>
+                        <p className="text-sm text-[rgb(86,88,105)]">{event.teams.name}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 text-[rgb(86,88,105)]">
+                        <Clock className="w-5 h-5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium">
+                            {formatTime(event.start_time)}
+                            {event.end_time && ` - ${formatTime(event.end_time)}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {event.location && (
+                        <div className="flex items-center space-x-3 text-[rgb(86,88,105)]">
+                          <MapPin className="w-5 h-5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium">{event.location}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {event.description && (
+                        <div className="pt-3 border-t border-[rgb(0,0,0)]/10">
+                          <p className="text-sm text-[rgb(86,88,105)]">{event.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </AppleModal>
     </div>
   );
 }

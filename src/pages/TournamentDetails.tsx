@@ -16,10 +16,12 @@ import {
   Play,
   CheckCircle,
   X,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Tournament, TournamentParticipant } from '../lib/supabase';
 import TournamentMap from '../components/TournamentMap';
+import GuestPlayerButton from '../components/tournaments/GuestPlayerButton';
 
 interface TournamentWithOrg extends Tournament {
   organizations: {
@@ -36,6 +38,13 @@ interface ParticipantWithOrg extends TournamentParticipant {
     city: string | null;
     state: string | null;
   };
+  teams?: {
+    name: string;
+    sport: string;
+    age_group: string | null;
+    gender: string | null;
+    logo_url: string | null;
+  };
 }
 
 export default function TournamentDetails() {
@@ -47,7 +56,12 @@ export default function TournamentDetails() {
   const [hasApplied, setHasApplied] = useState(false);
   const [error, setError] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const { organization } = useAuth();
+  const [hasRegisteredTeam, setHasRegisteredTeam] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
+  const [availableTeams, setAvailableTeams] = useState<any[]>([]);
+  const [registeringTeam, setRegisteringTeam] = useState(false);
+  const [unregisteringTeam, setUnregisteringTeam] = useState(false);
+  const { organization, player } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,6 +70,7 @@ export default function TournamentDetails() {
       loadParticipants();
       if (organization) {
         checkApplicationStatus();
+        checkTeamRegistration();
       }
     }
   }, [id, organization]);
@@ -83,7 +98,7 @@ export default function TournamentDetails() {
     try {
       const { data, error } = await supabase
         .from('tournament_participants')
-        .select('*, organizations(name, city, state)')
+        .select('*, organizations(name, city, state), teams(name, sport, age_group, gender, logo_url)')
         .eq('tournament_id', id)
         .order('confirmed_at', { ascending: true });
 
@@ -111,6 +126,118 @@ export default function TournamentDetails() {
       setHasApplied(!!data);
     } catch (error) {
       console.error('Error checking application status:', error);
+    }
+  };
+
+  const checkTeamRegistration = async () => {
+    if (!organization) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('tournament_participants')
+        .select('team_id, teams!inner(id, organization_id)')
+        .eq('tournament_id', id)
+        .eq('teams.organization_id', organization.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking team registration:', error);
+        return;
+      }
+
+      setHasRegisteredTeam(!!data);
+    } catch (error) {
+      console.error('Error checking team registration:', error);
+    }
+  };
+
+  const loadAvailableTeams = async () => {
+    if (!organization || !tournament) return;
+
+    try {
+      // Get all teams from this organization that match the tournament sport
+      const { data: allTeams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id, name, sport, age_group')
+        .eq('organization_id', organization.id)
+        .eq('sport', tournament.sport);
+
+      if (teamsError) throw teamsError;
+
+      // Get already registered teams for this tournament
+      const { data: registeredTeams, error: regError } = await supabase
+        .from('tournament_participants')
+        .select('team_id')
+        .eq('tournament_id', id)
+        .eq('organization_id', organization.id);
+
+      if (regError && regError.code !== 'PGRST116') throw regError;
+
+      const registeredTeamIds = new Set(registeredTeams?.map((t) => t.team_id) || []);
+
+      // Filter out already registered teams
+      const available = allTeams?.filter((team) => !registeredTeamIds.has(team.id)) || [];
+
+      setAvailableTeams(available);
+    } catch (error) {
+      console.error('Error loading teams:', error);
+    }
+  };
+
+  const handleRegisterTeam = async (teamId: string) => {
+    if (!organization) return;
+
+    setRegisteringTeam(true);
+
+    try {
+      const { error } = await supabase.from('tournament_participants').insert({
+        tournament_id: id,
+        team_id: teamId,
+        organization_id: organization.id,
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      setShowTeamSelector(false);
+      setHasRegisteredTeam(true);
+      loadParticipants();
+      checkTeamRegistration();
+    } catch (error) {
+      console.error('Error registering team:', error);
+      alert('Failed to register team');
+    } finally {
+      setRegisteringTeam(false);
+    }
+  };
+
+  const handleUnregisterTeam = async () => {
+    if (!organization) return;
+
+    if (!confirm('Are you sure you want to withdraw your team from this tournament?')) {
+      return;
+    }
+
+    setUnregisteringTeam(true);
+
+    try {
+      const { error } = await supabase
+        .from('tournament_participants')
+        .delete()
+        .eq('tournament_id', id)
+        .eq('organization_id', organization.id);
+
+      if (error) throw error;
+
+      setHasRegisteredTeam(false);
+      loadParticipants();
+      checkTeamRegistration();
+    } catch (error) {
+      console.error('Error unregistering team:', error);
+      alert('Failed to withdraw team from tournament');
+    } finally {
+      setUnregisteringTeam(false);
     }
   };
 
@@ -196,7 +323,7 @@ export default function TournamentDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 pt-32 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
@@ -204,7 +331,7 @@ export default function TournamentDetails() {
 
   if (!tournament) {
     return (
-      <div className="min-h-screen bg-slate-950 pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 pt-32 flex items-center justify-center">
         <div className="text-center">
           <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-white mb-2">Tournament not found</h3>
@@ -220,7 +347,7 @@ export default function TournamentDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-slate-950 pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate('/tournaments')}
@@ -242,10 +369,12 @@ export default function TournamentDetails() {
                     </span>
                   </div>
 
-                  <div className="flex items-center space-x-2 text-slate-400 mb-4">
-                    <Building2 className="w-4 h-4" />
-                    <span>Hosted by {tournament.organizations.name}</span>
-                  </div>
+                  {tournament.organizations && (
+                    <div className="flex items-center space-x-2 text-slate-400 mb-4">
+                      <Building2 className="w-4 h-4" />
+                      <span>Hosted by {tournament.organizations.name}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center space-x-3">
                     <span
@@ -285,15 +414,57 @@ export default function TournamentDetails() {
                   </div>
                 </div>
 
-                {isOwnTournament && (
-                  <button
-                    onClick={() => navigate(`/tournaments/${id}/edit`)}
-                    className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition-all flex items-center space-x-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                    <span>Edit</span>
-                  </button>
-                )}
+                <div className="flex items-center space-x-3">
+                  {organization && !hasRegisteredTeam && tournament.status === 'open' && (
+                    <button
+                      onClick={() => {
+                        loadAvailableTeams();
+                        setShowTeamSelector(true);
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-lg hover:shadow-lg hover:shadow-green-400/50 transition-all flex items-center space-x-2"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Register Team</span>
+                    </button>
+                  )}
+                  {hasRegisteredTeam && (
+                    <>
+                      <button
+                        onClick={() => navigate(`/tournaments/${id}/guest-players`)}
+                        className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 text-white rounded-lg hover:shadow-lg hover:shadow-cyan-400/50 transition-all flex items-center space-x-2"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Guest Players</span>
+                      </button>
+                      <button
+                        onClick={handleUnregisterTeam}
+                        disabled={unregisteringTeam}
+                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:shadow-lg hover:shadow-red-500/50 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {unregisteringTeam ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Withdrawing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4" />
+                            <span>Withdraw Team</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                  {isOwnTournament && (
+                    <button
+                      onClick={() => navigate(`/tournaments/${id}/edit`)}
+                      className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition-all flex items-center space-x-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {tournament.description && (
@@ -422,30 +593,58 @@ export default function TournamentDetails() {
               <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
                 <h2 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Users className="w-5 h-5 mr-2 text-cyan-400" />
-                  Participating Organizations ({participants.length})
+                  Registered Teams ({participants.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {participants.map((participant) => (
                     <div
                       key={participant.id}
-                      className="flex items-center space-x-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                      className="flex flex-col p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
                     >
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
-                        {participant.organizations.name.charAt(0)}
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
+                          {participant.teams?.name.charAt(0) || participant.organizations.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {participant.teams ? (
+                            <>
+                              <h3 className="text-white font-semibold truncate">
+                                {participant.teams.name}
+                              </h3>
+                              <div className="flex items-center space-x-2 text-xs text-slate-400">
+                                {participant.teams.age_group && (
+                                  <span>{participant.teams.age_group}</span>
+                                )}
+                                {participant.teams.gender && (
+                                  <>
+                                    {participant.teams.age_group && <span>•</span>}
+                                    <span className="capitalize">{participant.teams.gender}</span>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <h3 className="text-white font-semibold truncate">
+                              {participant.organizations.name}
+                            </h3>
+                          )}
+                        </div>
+                        {participant.check_in_status === 'checked_in' && (
+                          <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-semibold truncate">
+                      <div className="flex items-center space-x-2 text-xs text-slate-500 pl-13">
+                        <Building2 className="w-3 h-3" />
+                        <span className="truncate">
                           {participant.organizations.name}
-                        </h3>
-                        <p className="text-slate-400 text-sm">
-                          {participant.organizations.city}
-                          {participant.organizations.state &&
-                            `, ${participant.organizations.state}`}
-                        </p>
+                          {participant.organizations.city && (
+                            <> • {participant.organizations.city}</>
+                          )}
+                          {participant.organizations.state && (
+                            <>, {participant.organizations.state}</>
+                          )}
+                        </span>
                       </div>
-                      {participant.check_in_status === 'checked_in' && (
-                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      )}
                     </div>
                   ))}
                 </div>
@@ -505,13 +704,21 @@ export default function TournamentDetails() {
                     You've applied to this tournament. The host will review your application.
                   </p>
                 </div>
+              ) : player ? (
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-4">Join as Guest Player</h3>
+                  <p className="text-slate-400 text-sm mb-4">
+                    Apply to play with teams that need guest players for this tournament.
+                  </p>
+                  <GuestPlayerButton tournamentId={id!} />
+                </div>
               ) : (
                 <div>
                   <h3 className="text-lg font-bold text-white mb-4">Ready to compete?</h3>
                   {!organization ? (
                     <div className="text-center">
                       <p className="text-slate-400 text-sm mb-4">
-                        You need an organization account to apply
+                        Sign in as an organization to apply, or as a player to join as a guest
                       </p>
                       <button
                         onClick={() => navigate('/login')}
@@ -552,6 +759,58 @@ export default function TournamentDetails() {
             </div>
           </div>
         </div>
+
+        {/* Team Selection Modal */}
+        {showTeamSelector && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white">Select Team to Register</h3>
+                <button
+                  onClick={() => setShowTeamSelector(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {availableTeams.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400 mb-2">No teams available</p>
+                  <p className="text-sm text-slate-500">
+                    Create a {tournament?.sport} team to register
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {availableTeams.map((team) => (
+                    <button
+                      key={team.id}
+                      onClick={() => handleRegisterTeam(team.id)}
+                      disabled={registeringTeam}
+                      className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:border-green-500/50 hover:bg-slate-800 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-white mb-1">{team.name}</h4>
+                          <p className="text-sm text-slate-400">
+                            {team.sport} • {team.age_group}
+                          </p>
+                        </div>
+                        {registeringTeam ? (
+                          <Loader2 className="w-5 h-5 animate-spin text-green-400" />
+                        ) : (
+                          <CheckCircle className="w-5 h-5 text-green-400" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

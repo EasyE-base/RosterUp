@@ -10,10 +10,19 @@ import {
   AlertCircle,
   Navigation,
   ArrowLeft,
+  Shield,
+  Image,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { geocodeAddress } from '../lib/geocoding';
+import { getSanctioningBodiesBySport } from '../constants/sanctioningBodies';
+import {
+  TOURNAMENT_CLASSIFICATION_OPTIONS,
+  CLASSIFICATION_LEVELS,
+  type TournamentClassificationAcceptance,
+  type TeamClassification,
+} from '../constants/classifications';
 
 export default function TournamentEdit() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +37,11 @@ export default function TournamentEdit() {
     title: '',
     description: '',
     sport: '',
+    sanctioning_body: '',
+    image_url: '',
+    age_group: '',
+    classification_acceptance: 'OPEN' as TournamentClassificationAcceptance,
+    accepted_classifications: [] as TeamClassification[],
     start_date: '',
     end_date: '',
     registration_deadline: '',
@@ -72,6 +86,11 @@ export default function TournamentEdit() {
         title: data.title,
         description: data.description || '',
         sport: data.sport,
+        sanctioning_body: data.sanctioning_body || '',
+        image_url: data.image_url || '',
+        age_group: data.age_group || '',
+        classification_acceptance: (data.classification_acceptance || 'OPEN') as TournamentClassificationAcceptance,
+        accepted_classifications: (data.accepted_classifications || []) as TeamClassification[],
         start_date: data.start_date,
         end_date: data.end_date,
         registration_deadline: data.registration_deadline,
@@ -146,6 +165,14 @@ export default function TournamentEdit() {
           title: formData.title,
           description: formData.description,
           sport: formData.sport,
+          sanctioning_body: formData.sanctioning_body || null,
+          image_url: formData.image_url || null,
+          age_group: formData.age_group || null,
+          classification_acceptance: formData.classification_acceptance,
+          accepted_classifications:
+            formData.classification_acceptance === 'CUSTOM'
+              ? formData.accepted_classifications
+              : null,
           start_date: formData.start_date,
           end_date: formData.end_date,
           registration_deadline: formData.registration_deadline,
@@ -180,14 +207,14 @@ export default function TournamentEdit() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 pt-32 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-20 pb-12">
+    <div className="min-h-screen bg-slate-950 pt-32 pb-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate(`/tournaments/${id}`)}
@@ -249,7 +276,7 @@ export default function TournamentEdit() {
                   </label>
                   <select
                     value={formData.sport}
-                    onChange={(e) => setFormData({ ...formData, sport: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, sport: e.target.value, sanctioning_body: '' })}
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                     required
                   >
@@ -283,6 +310,188 @@ export default function TournamentEdit() {
                   </select>
                 </div>
               </div>
+
+              {formData.sport && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
+                    <Shield className="w-4 h-4 mr-2 text-yellow-400" />
+                    Sanctioning Body (Optional)
+                  </label>
+                  <select
+                    value={formData.sanctioning_body}
+                    onChange={(e) => setFormData({ ...formData, sanctioning_body: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  >
+                    <option value="">No sanctioning body</option>
+                    {getSanctioningBodiesBySport(formData.sport).map((body) => (
+                      <option key={body.value} value={body.value}>
+                        {body.label} {body.description && `- ${body.description}`}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Select the governing body that will sanction this tournament. This helps teams understand which rules and regulations will apply.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
+                  <Image className="w-4 h-4 mr-2 text-purple-400" />
+                  Tournament Image URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  placeholder="https://example.com/tournament-image.jpg"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Add a cover image for your tournament. Use a direct image URL (e.g., from Unsplash, Imgur, or your own hosting).
+                </p>
+                {formData.image_url && (
+                  <div className="mt-3">
+                    <img
+                      src={formData.image_url}
+                      alt="Tournament preview"
+                      className="w-full h-48 object-cover rounded-lg border border-slate-700"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Age Group (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.age_group}
+                  onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
+                  placeholder="e.g., 10U, 12U, 14U, 16U, 18U"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Specify the age group for age-specific classification rules (e.g., relaxed requirements for younger age groups).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
+              <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
+              Team Classification & Eligibility
+            </h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Classification Acceptance Policy *
+                </label>
+                <select
+                  value={formData.classification_acceptance}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      classification_acceptance: e.target.value as TournamentClassificationAcceptance,
+                      accepted_classifications: [],
+                    })
+                  }
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  required
+                >
+                  {TOURNAMENT_CLASSIFICATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} - {option.description}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-400">
+                  Determines which team classification levels can enter this tournament. This ensures competitive balance.
+                </p>
+              </div>
+
+              {formData.classification_acceptance === 'CUSTOM' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                    Select Accepted Classifications *
+                  </label>
+                  <div className="space-y-2">
+                    {CLASSIFICATION_LEVELS.map((level) => (
+                      <label
+                        key={level.value}
+                        className="flex items-center space-x-3 p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.accepted_classifications.includes(level.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                accepted_classifications: [
+                                  ...formData.accepted_classifications,
+                                  level.value,
+                                ],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                accepted_classifications: formData.accepted_classifications.filter(
+                                  (c) => c !== level.value
+                                ),
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span
+                              className={`px-2 py-1 text-xs font-bold rounded bg-${level.color}-500/20 text-${level.color}-400`}
+                            >
+                              {level.shortLabel}
+                            </span>
+                            <span className="text-white font-medium">{level.label}</span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">{level.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">
+                    Select which team classifications are eligible to enter this tournament.
+                  </p>
+                </div>
+              )}
+
+              {formData.classification_acceptance !== 'CUSTOM' && (
+                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300 font-medium mb-2">
+                    Accepted Team Classifications:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {TOURNAMENT_CLASSIFICATION_OPTIONS.find(
+                      (opt) => opt.value === formData.classification_acceptance
+                    )?.acceptedLevels.map((levelValue) => {
+                      const level = CLASSIFICATION_LEVELS.find((l) => l.value === levelValue);
+                      return level ? (
+                        <span
+                          key={levelValue}
+                          className={`px-3 py-1 text-sm font-bold rounded-full bg-${level.color}-500/20 text-${level.color}-400 border border-${level.color}-500/30`}
+                        >
+                          {level.shortLabel} - {level.label}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

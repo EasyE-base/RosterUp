@@ -1,0 +1,24 @@
+{
+  "id": "roster-sports-01",
+  "name": "Team Roster",
+  "description": "Display team members with photos, positions, and bios",
+  "version": "1.0.0",
+  "sections": [
+    {
+      "name": "Team Roster",
+      "section_type": "roster",
+      "content": {
+        "title": "Team Roster",
+        "description": "Meet our players and coaches",
+        "members": []
+      },
+      "styles": {},
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "author": "RosterUp",
+    "created_at": "2025-11-02",
+    "tags": ["roster", "sports", "team"]
+  }
+}

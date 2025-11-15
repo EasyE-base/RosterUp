@@ -55,6 +55,20 @@ export function replaceTemplateVariables(
         newValue = newValue.replace(new RegExp(`{{${varName}}}`, 'g'), varValue);
       }
       replaced[key] = newValue;
+    } else if (Array.isArray(value)) {
+      // Handle arrays by recursively processing each element
+      replaced[key] = value.map(item => {
+        if (typeof item === 'string') {
+          let newValue = item;
+          for (const [varName, varValue] of Object.entries(variables)) {
+            newValue = newValue.replace(new RegExp(`{{${varName}}}`, 'g'), varValue);
+          }
+          return newValue;
+        } else if (typeof item === 'object' && item !== null) {
+          return replaceTemplateVariables(item, variables);
+        }
+        return item;
+      });
     } else if (typeof value === 'object' && value !== null) {
       replaced[key] = replaceTemplateVariables(value, variables);
     } else {

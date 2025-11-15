@@ -16,6 +16,7 @@ export default function Signup() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showParentVerificationNotice, setShowParentVerificationNotice] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,7 +56,25 @@ export default function Signup() {
         if (userType === 'organization') {
           navigate('/onboarding/organization');
         } else {
-          navigate('/onboarding/player');
+          // Create player record with age and parent email
+          const { error: playerError } = await supabase.from('players').insert({
+            user_id: data.user.id,
+            age: parseInt(playerAge),
+            parent_email: parseInt(playerAge) < 18 ? parentEmail : null,
+            country: 'United States',
+            rating: 0,
+            profile_visibility: 'public',
+          });
+
+          if (playerError) throw playerError;
+
+          // Show parent verification notice for players under 18
+          if (parseInt(playerAge) < 18) {
+            setShowParentVerificationNotice(true);
+            setLoading(false);
+          } else {
+            navigate('/onboarding/player');
+          }
         }
       }
     } catch (err) {
@@ -336,6 +355,44 @@ export default function Signup() {
           </p>
         </div>
       </div>
+
+      {/* Parent Verification Notice Modal */}
+      {showParentVerificationNotice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-yellow-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Parent Verification Required</h2>
+              <p className="text-slate-400">
+                Since you're under 18, we've sent a verification email to{' '}
+                <span className="text-blue-400 font-semibold">{parentEmail}</span>
+              </p>
+            </div>
+
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-6">
+              <p className="text-sm text-slate-300 mb-3">
+                Your parent or guardian needs to verify your account before you can continue. They will receive an email with instructions.
+              </p>
+              <p className="text-sm text-slate-400">
+                Once verified, you can complete your profile and start finding teams!
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate('/onboarding/player')}
+              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            >
+              Continue to Profile Setup
+            </button>
+
+            <p className="text-xs text-slate-500 text-center mt-4">
+              Note: Your account will have limited access until parent verification is complete.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
