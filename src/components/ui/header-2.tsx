@@ -101,9 +101,14 @@ export function Header() {
                     },
                 )}
             >
-                <Link to="/" className="group">
-                    <span className="text-3xl font-bold text-[rgb(29,29,31)] group-hover:text-[rgb(0,113,227)] transition-colors" style={{ fontFamily: 'BaseballClub, sans-serif' }}>
-                        RosterUp
+                <Link to="/" className="group flex items-center gap-2">
+                    <img
+                        src="/rosterup-logo no text.png"
+                        alt="RosterUp Icon"
+                        className="w-8 h-8 object-contain"
+                    />
+                    <span className="text-3xl font-bold text-[rgb(29,29,31)] group-hover:text-[rgb(0,113,227)] transition-colors tracking-wide" style={{ fontFamily: 'BebasNeue, sans-serif' }}>
+                        Roster Up
                     </span>
                 </Link>
                 <div className="hidden items-center gap-3 md:flex">

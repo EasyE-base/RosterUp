@@ -6,6 +6,127 @@
 
 ## Recent Changes
 
+### November 15, 2025 - Modern Auth Component Integration
+
+#### ✨ Complete Sign-in/Sign-up UI Redesign
+**Overview:** Replaced both Login and Signup pages with a modern, animated authentication component featuring Apple Design System light theme, 3D card effects, and enhanced user experience.
+
+**Files Created:**
+- `src/components/ui/sign-in-card.tsx` - Shared base authentication component with animations
+
+**Files Modified:**
+- `src/pages/Login.tsx` - Simplified to use new SignInCard component
+- `src/pages/Signup.tsx` - Enhanced with user type selection and age verification
+
+**Key Features:**
+
+1. **Modern Component Design:**
+   - Converted from Next.js to React Router (Link component, no Next.js dependencies)
+   - Dark theme → Light Apple Design System theme
+   - Background: Warm `rgb(247,247,249)` with subtle blue gradients
+   - Cards: White with `border-slate-200` and backdrop blur
+   - All animations preserved (3D tilt, border beams, glows)
+
+2. **3D Card Effects:**
+   - Mouse-tracking 3D rotation using framer-motion
+   - Perspective: 1500px with smooth transforms
+   - Enhanced on hover with glow effects
+
+3. **Animated Border Light Beams:**
+   - Traveling light beams around card borders (4 sides)
+   - Apple blue color `rgb(0,113,227)` with blur effects
+   - Corner glow spots with pulsing animations
+   - All adapted to light theme with reduced opacity
+
+4. **RosterUp Logo:**
+   - Font-based logo using BaseballClub font
+   - Large "R" letter in circular badge
+   - Gradient background with subtle lighting effects
+   - Consistent with navbar branding
+
+5. **OAuth Integration:**
+   - ✅ Google sign-in button (full SVG logo included)
+   - ❌ GitHub button removed (as requested)
+   - Light theme styling with proper hover states
+
+**Login Page Features:**
+- Email/password fields with icon animations
+- Password visibility toggle (Eye/EyeOff icons)
+- Remember me checkbox with custom styling
+- Forgot password link to `/forgot-password`
+- Full Supabase authentication integration
+- Error handling with styled error messages
+- Loading states with spinner animation
+- Auto-navigation to `/dashboard` on success
+
+**Signup Page Features:**
+
+1. **User Type Selection:**
+   - Interactive cards: Organization vs Player
+   - Visual feedback with Apple blue selection state
+   - Icon-based selection (Building2 vs Users)
+   - Smooth animations on selection
+
+2. **Dynamic Form Fields:**
+   - Organization: Name, Email, Password, Confirm Password
+   - Player: All above + Age + Parent Email (if under 18)
+   - Fields change based on user type selection
+
+3. **Age Verification System:**
+   - Age input field for players
+   - Automatic parent email field if age < 18
+   - Warning notice about parent verification requirement
+   - Yellow alert box with consent message
+
+4. **Password Confirmation:**
+   - Separate confirm password field
+   - Visual toggle for both password fields
+   - Client-side validation for matching passwords
+   - Minimum 6 character requirement
+
+5. **Terms & Privacy Acceptance:**
+   - Custom styled checkbox with Apple blue checkmark
+   - Links to Terms of Service and Privacy Policy
+   - Required validation before signup
+   - Smooth animation on check
+
+6. **Parent Verification Modal:**
+   - Appears for players under 18 after signup
+   - Light theme design with Apple colors
+   - Shows parent email with verification instructions
+   - "Continue to Profile Setup" button
+   - Note about limited access until verification
+
+7. **Supabase Integration:**
+   - `supabase.auth.signUp()` for account creation
+   - Creates profile record with user type
+   - Creates player record for player accounts
+   - Stores age and parent email for players
+   - Navigation to appropriate onboarding:
+     - Organizations → `/onboarding/organization`
+     - Players (18+) → `/onboarding/player`
+     - Players (<18) → Shows verification modal first
+
+**Design Consistency:**
+- Matches existing Apple Design System
+- Consistent with Dashboard, TeamDetails, etc.
+- Uses same color palette throughout
+- Maintains framer-motion animations
+- Mobile responsive design
+
+**Animation Details:**
+- Card entrance: Opacity + Y-axis fade-in (0.8s)
+- 3D tilt: Mouse-tracking rotation on X/Y axis
+- Border beams: 3-second traveling animation per side
+- Corner glows: 2-second pulsing opacity
+- Input focus: Subtle scale (1.01) with spring animation
+- Button hover: Scale + glow effect
+- User type cards: Scale on hover/tap
+
+**Status:** ✅ Complete - Both auth pages redesigned with modern UI and full functionality
+
+---
+
 ### November 15, 2025 - Brand Font Update & Tryout Registration Fix
 
 #### ✨ Baseball Club Solid Font Integration
