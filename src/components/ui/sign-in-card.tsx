@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { supabase } from '@/lib/supabase';
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
@@ -65,6 +66,23 @@ export function SignInCard({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     await onSubmit({ email, password, rememberMe });
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/select-user-type`,
+        },
+      });
+
+      if (error) {
+        console.error('Google sign-in error:', error);
+      }
+    } catch (err) {
+      console.error('Error signing in with Google:', err);
+    }
   };
 
   return (
@@ -432,6 +450,7 @@ export function SignInCard({
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   type="button"
+                  onClick={handleGoogleSignIn}
                   className="w-full relative group/google"
                 >
                   <div className="relative overflow-hidden bg-white hover:bg-slate-50 text-[rgb(29,29,31)] font-medium h-11 rounded-lg border border-slate-200 hover:border-slate-300 transition-all duration-300 flex items-center justify-center gap-2 shadow-sm">

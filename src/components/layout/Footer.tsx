@@ -29,8 +29,14 @@ export default function Footer() {
               to="/"
               className="flex flex-row gap-2 items-center justify-start text-2xl font-bold text-[rgb(29,29,31)]"
             >
-              <div className="h-5 w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
-              RosterUp
+              <img
+                src="/rosterup-logo no text.png"
+                alt="RosterUp Icon"
+                className="w-8 h-8 object-contain"
+              />
+              <span style={{ fontFamily: 'BebasNeue, sans-serif' }} className="tracking-wide">
+                Roster Up
+              </span>
             </Link>
             <p className="text-[rgb(134,142,150)] font-medium text-base w-full md:w-4/5">
               Streamline your season. Always free for organizations.

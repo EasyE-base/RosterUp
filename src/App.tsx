@@ -29,6 +29,7 @@ import TournamentGuestPlayers from './pages/TournamentGuestPlayers';
 import TournamentEdit from './pages/TournamentEdit';
 import OrganizationOnboarding from './pages/onboarding/OrganizationOnboarding';
 import PlayerOnboarding from './pages/onboarding/PlayerOnboarding';
+import SelectUserType from './pages/SelectUserType';
 import WebsiteBuilder from './pages/WebsiteBuilder';
 import WebsiteBuilderEditor from './pages/WebsiteBuilderEditor';
 import PlayerMarketplace from './pages/marketplace/PlayerMarketplace';
@@ -63,6 +64,15 @@ function App() {
 
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        <Route
+          path="/select-user-type"
+          element={
+            <ProtectedRoute>
+              <SelectUserType />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/onboarding/organization"

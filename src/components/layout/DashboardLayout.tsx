@@ -57,7 +57,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-            {open ? <Logo /> : <LogoIcon />}
             <div className="mt-8 flex flex-col gap-2">
               {navigation.map((link, idx) => (
                 <SidebarLink key={idx} link={link} />
@@ -91,32 +90,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   );
 }
-
-const Logo = () => {
-  return (
-    <Link
-      to="/dashboard"
-      className="font-normal flex space-x-2 items-center text-sm text-[rgb(29,29,31)] py-1 relative z-20"
-    >
-      <div className="h-5 w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-medium text-[rgb(29,29,31)] whitespace-pre"
-      >
-        RosterUp
-      </motion.span>
-    </Link>
-  );
-};
-
-const LogoIcon = () => {
-  return (
-    <Link
-      to="/dashboard"
-      className="font-normal flex space-x-2 items-center text-sm text-[rgb(29,29,31)] py-1 relative z-20"
-    >
-      <div className="h-5 w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
-    </Link>
-  );
-};
