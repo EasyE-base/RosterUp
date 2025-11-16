@@ -298,4 +298,4 @@ For support, email support@rosterup.com or open an issue in the repository.
 
 ---
 
-Built with ❤️ by the RosterUp Team
+Built with ❤️ by the RosterUp Team# Trigger rebuild
