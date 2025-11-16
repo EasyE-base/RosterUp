@@ -248,7 +248,7 @@ export function SignInCard({
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", duration: 0.8 }}
-                  className="mx-auto w-48 h-48 flex items-center justify-center"
+                  className="mx-auto w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 flex items-center justify-center"
                 >
                   <img
                     src="/rosterup-logo.png"
