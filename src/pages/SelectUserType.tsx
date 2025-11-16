@@ -11,7 +11,19 @@ export default function SelectUserType() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile, organization, player } = useAuth();
+
+  // Redirect if not authenticated
+  if (!user) {
+    navigate('/login', { replace: true });
+    return null;
+  }
+
+  // Redirect if user already has a profile and organization/player setup
+  if (profile && (organization || player)) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
   const handleContinue = async () => {
     if (!userType) {

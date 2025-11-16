@@ -67,11 +67,7 @@ function App() {
 
         <Route
           path="/select-user-type"
-          element={
-            <ProtectedRoute>
-              <SelectUserType />
-            </ProtectedRoute>
-          }
+          element={<SelectUserType />}
         />
 
         <Route
