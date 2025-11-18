@@ -14,20 +14,52 @@ export default function SelectUserType() {
   const { user, profile, organization, player, trainer, loading: authLoading } = useAuth();
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
-  // Check for OAuth callback params on mount
+  // Handle OAuth callback manually
   useEffect(() => {
-    const hash = window.location.hash;
-    const search = window.location.search;
-    if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
-      console.log('SelectUserType: Detected OAuth params, waiting for session...');
-      setIsProcessingOAuth(true);
-      // Safety timeout in case Supabase never picks it up
-      const timer = setTimeout(() => {
-        console.log('SelectUserType: OAuth processing timeout');
-        setIsProcessingOAuth(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    const handleOAuthCallback = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get('code');
+      const error = searchParams.get('error');
+      const errorDescription = searchParams.get('error_description');
+
+      if (error) {
+        console.error('OAuth Error from URL:', error, errorDescription);
+        setError(`Sign in failed: ${errorDescription || error}`);
+        return;
+      }
+
+      if (code) {
+        console.log('SelectUserType: Detected Auth Code, attempting manual exchange...');
+        setIsProcessingOAuth(true);
+
+        try {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            console.error('Manual exchange failed:', exchangeError);
+            // If manual exchange fails, we can't do much else.
+            // But sometimes it fails because it was already consumed by the auto-handler.
+            // So we check if we have a user anyway.
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser) {
+              console.log('Exchange failed but user is logged in (likely race condition), proceeding...');
+              return; // The main auth effect will handle the redirect
+            }
+
+            throw exchangeError;
+          }
+
+          console.log('Manual exchange successful:', data.session?.user?.id);
+          // Success! The main auth effect will see the user and redirect.
+        } catch (err) {
+          console.error('Error processing OAuth callback:', err);
+          setError(err instanceof Error ? err.message : 'Failed to complete sign in');
+          setIsProcessingOAuth(false);
+        }
+      }
+    };
+
+    handleOAuthCallback();
   }, []);
 
   // Redirect if not authenticated or already has complete setup
@@ -40,8 +72,14 @@ export default function SelectUserType() {
     }
 
     if (!user) {
-      console.log('SelectUserType: No user found, redirecting to login');
-      navigate('/login', { replace: true });
+      // Only redirect if we are NOT currently processing an OAuth code
+      const hasCode = new URLSearchParams(window.location.search).has('code');
+      if (!hasCode) {
+        console.log('SelectUserType: No user found and no code param, redirecting to login');
+        navigate('/login', { replace: true });
+      } else {
+        console.log('SelectUserType: No user yet, but code param exists. Waiting...');
+      }
       return;
     }
 
