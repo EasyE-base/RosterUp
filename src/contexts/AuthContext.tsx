@@ -20,7 +20,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+// Global variable to track redirect state across remounts (Strict Mode)
+let globalIsHandlingRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token');
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -30,19 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we're handling an OAuth redirect
-    const isHandlingRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token');
-
-    if (isHandlingRedirect) {
-      console.log('AuthContext: Detected OAuth redirect, keeping loading state true...');
-    }
+    console.log('AuthContext: Mounting, globalIsHandlingRedirect:', globalIsHandlingRedirect);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserProfile(session.user.id);
-      } else if (!isHandlingRedirect) {
+        globalIsHandlingRedirect = false; // Session found, no longer waiting
+      } else if (!globalIsHandlingRedirect) {
         // Only set loading to false if we're NOT waiting for a redirect to resolve
         setLoading(false);
       }
@@ -55,7 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         setSession(session);
         setUser(session?.user ?? null);
+
         if (session?.user) {
+          globalIsHandlingRedirect = false; // Session established
           await loadUserProfile(session.user.id);
         } else {
           setProfile(null);
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // CRITICAL FIX: If we are handling a redirect, DO NOT set loading to false on SIGNED_OUT.
           // Supabase often fires SIGNED_OUT before SIGNED_IN during the exchange.
           // We must wait for the session or the timeout.
-          if (!isHandlingRedirect) {
+          if (!globalIsHandlingRedirect) {
             setLoading(false);
           } else {
             console.log('AuthContext: Ignoring SIGNED_OUT event because we are handling a redirect...');
@@ -76,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Safety timeout for redirect handling
-    if (isHandlingRedirect) {
+    if (globalIsHandlingRedirect) {
       setTimeout(() => {
         console.log('AuthContext: Redirect handling timeout, forcing loading false');
+        globalIsHandlingRedirect = false;
         setLoading((prev) => {
           if (prev) return false;
           return prev;

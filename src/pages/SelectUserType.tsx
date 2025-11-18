@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, Award } from 'lucide-react';
+import { Building2, Users, Award, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { UserType } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SelectUserType() {
   const [userType, setUserType] = useState<'organization' | 'player' | 'trainer' | null>(null);
@@ -159,13 +160,13 @@ export default function SelectUserType() {
     }
   };
 
-  if (isProcessingOAuth) {
+  if (authLoading || isProcessingOAuth || !user) {
     return (
-      <div className="min-h-screen w-screen bg-[rgb(247,247,249)] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-[rgb(0,113,227)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[rgb(134,142,150)] text-sm">Finishing sign in...</p>
-        </div>
+      <div className="min-h-screen bg-[rgb(247,247,249)] flex flex-col items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-[rgb(0,113,227)] mb-4" />
+        <p className="text-[rgb(134,142,150)]">
+          {isProcessingOAuth ? 'Finishing sign in...' : 'Loading...'}
+        </p>
       </div>
     );
   }
