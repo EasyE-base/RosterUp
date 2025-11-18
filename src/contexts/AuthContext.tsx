@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, Profile, Organization, Player } from '../lib/supabase';
+import { supabase, Profile, Organization, Player, Trainer } from '../lib/supabase';
 import { showToast, handleError } from '../lib/toast';
 
 interface AuthContextType {
@@ -9,8 +9,9 @@ interface AuthContextType {
   profile: Profile | null;
   organization: Organization | null;
   player: Player | null;
+  trainer: Trainer | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData: { full_name: string; user_type: 'organization' | 'player' }) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, userData: { full_name: string; user_type: 'organization' | 'player' | 'trainer' }) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -25,15 +26,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
+  const [trainer, setTrainer] = useState<Trainer | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if we're handling an OAuth redirect
+    const isHandlingRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token');
+
+    if (isHandlingRedirect) {
+      console.log('AuthContext: Detected OAuth redirect, keeping loading state true...');
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserProfile(session.user.id);
-      } else {
+      } else if (!isHandlingRedirect) {
+        // Only set loading to false if we're NOT waiting for a redirect to resolve
         setLoading(false);
       }
     });
@@ -41,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('AuthContext: Auth state changed', _event, session?.user?.id);
       (async () => {
         setSession(session);
         setUser(session?.user ?? null);
@@ -50,10 +61,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           setOrganization(null);
           setPlayer(null);
+          setTrainer(null);
+          // If we were handling a redirect and now we're signed out (or failed), we should stop loading
           setLoading(false);
         }
       })();
     });
+
+    // Safety timeout for redirect handling
+    if (isHandlingRedirect) {
+      setTimeout(() => {
+        console.log('AuthContext: Redirect handling timeout, forcing loading false');
+        setLoading((prev) => {
+          if (prev) return false;
+          return prev;
+        });
+      }, 10000); // 10 seconds safety valve
+    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -80,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setOrganization(orgData);
           setPlayer(null);
+          setTrainer(null);
         } else if (profileData.user_type === 'player') {
           const { data: playerData } = await supabase
             .from('player_profiles')
@@ -89,6 +114,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setPlayer(playerData);
           setOrganization(null);
+          setTrainer(null);
+        } else if (profileData.user_type === 'trainer') {
+          const { data: trainerData } = await supabase
+            .from('trainers')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          setTrainer(trainerData);
+          setOrganization(null);
+          setPlayer(null);
         }
       }
     } catch (error) {
@@ -101,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    userData: { full_name: string; user_type: 'organization' | 'player' }
+    userData: { full_name: string; user_type: 'organization' | 'player' | 'trainer' }
   ) => {
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -162,6 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setOrganization(null);
     setPlayer(null);
+    setTrainer(null);
     showToast.success('Signed out successfully');
   };
 
@@ -198,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     organization,
     player,
+    trainer,
     loading,
     signUp,
     signIn,
