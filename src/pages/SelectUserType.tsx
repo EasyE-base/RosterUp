@@ -1,29 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users } from 'lucide-react';
+import { Building2, Users, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SelectUserType() {
-  const [userType, setUserType] = useState<'organization' | 'player' | null>(null);
+  const [userType, setUserType] = useState<'organization' | 'player' | 'trainer' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { user, profile, organization, player } = useAuth();
+  const { user, profile, organization, player, trainer, loading: authLoading } = useAuth();
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
-  // Redirect if not authenticated
-  if (!user) {
-    navigate('/login', { replace: true });
-    return null;
-  }
+  // Check for OAuth callback params on mount
+  useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
+      console.log('SelectUserType: Detected OAuth params, waiting for session...');
+      setIsProcessingOAuth(true);
+      // Safety timeout in case Supabase never picks it up
+      const timer = setTimeout(() => {
+        console.log('SelectUserType: OAuth processing timeout');
+        setIsProcessingOAuth(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
-  // Redirect if user already has a profile and organization/player setup
-  if (profile && (organization || player)) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
+  // Redirect if not authenticated or already has complete setup
+  useEffect(() => {
+    console.log('SelectUserType: Checking auth state', { authLoading, isProcessingOAuth, user: user?.id, profile: profile?.id });
+
+    if (authLoading || isProcessingOAuth) {
+      console.log('SelectUserType: Still loading auth or processing OAuth...');
+      return;
+    }
+
+    if (!user) {
+      console.log('SelectUserType: No user found, redirecting to login');
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    if (profile && (organization || player || trainer)) {
+      console.log('SelectUserType: User already has profile, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    console.log('SelectUserType: User authenticated and needs to select type');
+  }, [user, profile, organization, player, trainer, navigate, authLoading, isProcessingOAuth]);
 
   const handleContinue = async () => {
     if (!userType) {
@@ -52,7 +81,7 @@ export default function SelectUserType() {
 
       if (profileError) throw profileError;
 
-      // If player, create player record
+      // Create type-specific records and navigate to appropriate onboarding
       if (userType === 'player') {
         const { error: playerError } = await supabase.from('players').insert({
           user_id: user.id,
@@ -66,6 +95,21 @@ export default function SelectUserType() {
         }
 
         navigate('/onboarding/player');
+      } else if (userType === 'trainer') {
+        // Create trainer record (will be fully set up in onboarding)
+        const { error: trainerError } = await supabase.from('trainers').insert({
+          user_id: user.id,
+          sports: [],
+          specializations: [],
+          is_featured: false,
+          featured_priority: 0,
+        });
+
+        if (trainerError && trainerError.code !== '23505') { // Ignore duplicate key errors
+          throw trainerError;
+        }
+
+        navigate('/onboarding/trainer');
       } else {
         navigate('/onboarding/organization');
       }
@@ -76,6 +120,17 @@ export default function SelectUserType() {
       setLoading(false);
     }
   };
+
+  if (isProcessingOAuth) {
+    return (
+      <div className="min-h-screen w-screen bg-[rgb(247,247,249)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-[rgb(0,113,227)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[rgb(134,142,150)] text-sm">Finishing sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-screen bg-[rgb(247,247,249)] relative overflow-hidden flex items-center justify-center">
@@ -117,7 +172,7 @@ export default function SelectUserType() {
             <label className="block text-sm font-medium text-[rgb(29,29,31)]">
               Select Account Type
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <motion.button
                 type="button"
                 onClick={() => setUserType('organization')}
@@ -166,6 +221,31 @@ export default function SelectUserType() {
                   Player
                 </p>
                 <p className="text-xs text-[rgb(134,142,150)] mt-0.5">Find teams</p>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={() => setUserType('trainer')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={cn(
+                  "p-4 rounded-lg border-2 transition-all duration-200",
+                  userType === 'trainer'
+                    ? 'bg-[rgb(0,113,227)]/10 border-[rgb(0,113,227)] shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                )}
+              >
+                <Award className={cn(
+                  "w-6 h-6 mx-auto mb-1.5 transition-colors",
+                  userType === 'trainer' ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+                )} />
+                <p className={cn(
+                  "font-semibold text-sm",
+                  userType === 'trainer' ? 'text-[rgb(0,113,227)]' : 'text-[rgb(29,29,31)]'
+                )}>
+                  Trainer
+                </p>
+                <p className="text-xs text-[rgb(134,142,150)] mt-0.5">Offer training</p>
               </motion.button>
             </div>
           </div>

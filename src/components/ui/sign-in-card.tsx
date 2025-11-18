@@ -69,29 +69,38 @@ export function SignInCard({
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('Initiating Google Sign-In...');
     try {
+      const redirectTo = `${window.location.origin}/select-user-type`;
+      console.log('Redirect URL:', redirectTo);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/select-user-type`,
+          redirectTo,
         },
       });
 
       if (error) {
         console.error('Google sign-in error:', error);
+        // Assuming showToast is available or I need to pass an error state up
+        // Since showToast isn't imported here and it's a UI component, I'll rely on console for now
+        // but I will add a visible alert if possible or just better console logging
+        alert(`Sign in failed: ${error.message}`); // Temporary fallback for immediate visibility
       }
     } catch (err) {
       console.error('Error signing in with Google:', err);
+      alert('An unexpected error occurred during sign in');
     }
   };
 
   return (
     <div className="min-h-screen w-screen bg-[rgb(247,247,249)] relative overflow-hidden flex items-center justify-center">
       {/* Background gradient effect - subtle light theme */}
-      <div className="absolute inset-0 bg-gradient-to-b from-blue-50/60 via-white to-slate-50" />
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-50/60 via-white to-slate-50 pointer-events-none" />
 
       {/* Subtle noise texture overlay */}
-      <div className="absolute inset-0 opacity-[0.02] mix-blend-soft-light"
+      <div className="absolute inset-0 opacity-[0.02] mix-blend-soft-light pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           backgroundSize: '200px 200px'
@@ -235,7 +244,7 @@ export function SignInCard({
             {/* Glass card background */}
             <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl p-8 border border-slate-200/60 shadow-xl overflow-hidden">
               {/* Subtle card inner patterns */}
-              <div className="absolute inset-0 opacity-[0.02]"
+              <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
                 style={{
                   backgroundImage: `linear-gradient(135deg, rgb(0,113,227) 0.5px, transparent 0.5px), linear-gradient(45deg, rgb(0,113,227) 0.5px, transparent 0.5px)`,
                   backgroundSize: '30px 30px'
@@ -302,9 +311,8 @@ export function SignInCard({
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   >
                     <div className="relative flex items-center overflow-hidden rounded-lg">
-                      <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
-                        focusedInput === "email" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
-                      }`} />
+                      <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+                        }`} />
 
                       <Input
                         type="email"
@@ -326,9 +334,8 @@ export function SignInCard({
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   >
                     <div className="relative flex items-center overflow-hidden rounded-lg">
-                      <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
-                        focusedInput === "password" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
-                      }`} />
+                      <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+                        }`} />
 
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -455,10 +462,10 @@ export function SignInCard({
                 >
                   <div className="relative overflow-hidden bg-white hover:bg-slate-50 text-[rgb(29,29,31)] font-medium h-11 rounded-lg border border-slate-200 hover:border-slate-300 transition-all duration-300 flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
 
                     <span className="text-sm">
