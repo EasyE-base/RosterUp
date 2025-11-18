@@ -4,10 +4,17 @@ import { supabase as supabaseConfig } from '../config/app.config';
 // Create Supabase client using centralized configuration
 export const supabase = createClient(
   supabaseConfig.url,
-  supabaseConfig.anonKey
+  supabaseConfig.anonKey,
+  {
+    auth: {
+      detectSessionInUrl: false,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  }
 );
 
-export type UserType = 'organization' | 'player';
+export type UserType = 'organization' | 'player' | 'trainer';
 
 export interface Profile {
   id: string;
@@ -55,6 +62,36 @@ export interface Player {
   rating: number;
   profile_visibility: 'public' | 'private' | 'featured';
   parent_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Trainer {
+  id: string;
+  user_id: string;
+  headshot_url: string | null;
+  intro_video_url: string | null;
+  athletic_background: any; // JSONB array of {year, title, description}
+  coaching_background: any; // JSONB array of {year, title, description}
+  certifications: any; // JSONB array of {name, issuer, year}
+  specializations: string[];
+  sports: string[];
+  bio: string | null;
+  tagline: string | null;
+  travel_radius_miles: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  fixed_locations: any; // JSONB array of {name, address, lat, lng}
+  service_areas: any; // JSONB array of {city, state, radius}
+  pricing_info: any; // JSONB {hourly_rate, group_rate, show_pricing}
+  is_featured: boolean;
+  featured_priority: number;
+  featured_start_date: string | null;
+  featured_end_date: string | null;
+  total_sessions: number;
+  rating: number;
+  total_reviews: number;
+  availability_schedule: any; // JSONB weekly schedule
   created_at: string;
   updated_at: string;
 }
@@ -224,17 +261,17 @@ export interface WebsiteSection {
   page_id: string;
   name: string;
   section_type:
-    | 'header'
-    | 'content'
-    | 'footer'
-    | 'hero'
-    | 'about'
-    | 'schedule'
-    | 'contact'
-    | 'navigation-center-logo'
-    | 'commitments'
-    | 'gallery'
-    | 'roster';
+  | 'header'
+  | 'content'
+  | 'footer'
+  | 'hero'
+  | 'about'
+  | 'schedule'
+  | 'contact'
+  | 'navigation-center-logo'
+  | 'commitments'
+  | 'gallery'
+  | 'roster';
   background_color?: string;
   background_image?: string;
   background_size?: string;
