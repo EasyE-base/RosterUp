@@ -62,8 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setOrganization(null);
           setPlayer(null);
           setTrainer(null);
-          // If we were handling a redirect and now we're signed out (or failed), we should stop loading
-          setLoading(false);
+
+          // CRITICAL FIX: If we are handling a redirect, DO NOT set loading to false on SIGNED_OUT.
+          // Supabase often fires SIGNED_OUT before SIGNED_IN during the exchange.
+          // We must wait for the session or the timeout.
+          if (!isHandlingRedirect) {
+            setLoading(false);
+          } else {
+            console.log('AuthContext: Ignoring SIGNED_OUT event because we are handling a redirect...');
+          }
         }
       })();
     });
