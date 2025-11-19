@@ -287,11 +287,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setProfile(null);
     setOrganization(null);
     setPlayer(null);
     setTrainer(null);
     showToast.success('Signed out successfully');
+    window.location.href = '/login';
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
