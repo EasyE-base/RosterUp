@@ -8,6 +8,8 @@ import App from './App.tsx';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
 
+console.log('🚀 APP ENTRY POINT - Raw URL:', window.location.href);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             loadUserProfile(data.session.user.id);
           }
           // Clear the code from URL to prevent re-use issues (optional but good)
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // window.history.replaceState({}, document.title, window.location.pathname);
         }
       });
 
