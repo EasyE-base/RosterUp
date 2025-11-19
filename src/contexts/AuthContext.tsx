@@ -63,12 +63,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
         if (exchangeError) {
           console.error('AuthContext: Manual exchange failed:', exchangeError);
-          alert(`LOGIN FAILED (Code): ${exchangeError.message}`);
+          // alert(`LOGIN FAILED (Code): ${exchangeError.message}`);
           setLoading(false);
           globalIsHandlingRedirect = false;
         } else {
           console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
-          alert('LOGIN SUCCESS! Session established via Code.');
+          // alert('LOGIN SUCCESS! Session established via Code.');
 
           setSession(data.session);
           setUser(data.session?.user ?? null);
@@ -93,12 +93,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .then(({ data, error: sessionError }) => {
           if (sessionError) {
             console.error('AuthContext: Manual session set failed:', sessionError);
-            alert(`LOGIN FAILED (Hash): ${sessionError.message}`);
+            // alert(`LOGIN FAILED (Hash): ${sessionError.message}`);
             setLoading(false);
             globalIsHandlingRedirect = false;
           } else {
             console.log('AuthContext: Manual session set successful', data.session?.user?.id);
-            alert('LOGIN SUCCESS! Session established via Hash.');
+            // alert('LOGIN SUCCESS! Session established via Hash.');
 
             setSession(data.session);
             setUser(data.session?.user ?? null);

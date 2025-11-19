@@ -74,7 +74,7 @@ export function SignInCard({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://roster-up.vercel.app/select-user-type',
+          redirectTo: `${window.location.origin}/select-user-type`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

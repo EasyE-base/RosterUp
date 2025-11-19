@@ -8,14 +8,7 @@ import App from './App.tsx';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
 
-import { appConfig } from './config/app.config';
 
-console.log('🚀 APP ENTRY POINT - Raw URL:', window.location.href);
-console.log('🔧 CONFIG CHECK:', {
-  supabaseUrl: appConfig.supabase.url,
-  supabaseKeyLength: appConfig.supabase.anonKey?.length || 0,
-  supabaseKeyStart: appConfig.supabase.anonKey?.substring(0, 5) + '...',
-});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
