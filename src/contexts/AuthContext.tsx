@@ -35,7 +35,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     console.log('AuthContext: Mounting, globalIsHandlingRedirect:', globalIsHandlingRedirect);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('AuthContext: Error getting session:', error);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
