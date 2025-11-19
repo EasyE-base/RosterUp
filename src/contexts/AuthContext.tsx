@@ -56,32 +56,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // NUCLEAR OPTION: If code exists, exchange it IMMEDIATELY.
-    // Do not wait for getSession. Do not pass Go.
+    // NUCLEAR OPTION 1: If code exists (PKCE Flow), exchange it.
     if (code) {
       console.log('AuthContext: Code found, exchanging IMMEDIATELY...');
 
       supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
         if (exchangeError) {
           console.error('AuthContext: Manual exchange failed:', exchangeError);
-          alert(`LOGIN FAILED: ${exchangeError.message}`);
+          alert(`LOGIN FAILED (Code): ${exchangeError.message}`);
           setLoading(false);
           globalIsHandlingRedirect = false;
         } else {
           console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
-          alert('LOGIN SUCCESS! Session established.');
+          alert('LOGIN SUCCESS! Session established via Code.');
 
           setSession(data.session);
           setUser(data.session?.user ?? null);
           if (data.session?.user) {
             loadUserProfile(data.session.user.id);
           }
-          // Clear the code from URL to prevent re-use issues (optional but good)
-          // window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       });
+      return;
+    }
 
-      return; // Skip the standard getSession check if we are processing a code
+    // NUCLEAR OPTION 2: If hash exists (Implicit Flow), set session.
+    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove leading #
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      console.log('AuthContext: Hash tokens found, setting session IMMEDIATELY...');
+
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data, error: sessionError }) => {
+          if (sessionError) {
+            console.error('AuthContext: Manual session set failed:', sessionError);
+            alert(`LOGIN FAILED (Hash): ${sessionError.message}`);
+            setLoading(false);
+            globalIsHandlingRedirect = false;
+          } else {
+            console.log('AuthContext: Manual session set successful', data.session?.user?.id);
+            alert('LOGIN SUCCESS! Session established via Hash.');
+
+            setSession(data.session);
+            setUser(data.session?.user ?? null);
+            if (data.session?.user) {
+              loadUserProfile(data.session.user.id);
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        });
+      return;
     }
 
     // Standard session check (only if no code)
