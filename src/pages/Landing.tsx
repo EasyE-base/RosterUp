@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, Easing } from 'framer-motion';
 import { useRef } from 'react';
 import {
   Users,
@@ -13,13 +13,14 @@ import {
   Shield,
   Zap,
 } from 'lucide-react';
+import { UserTypeCard } from '@/components/UserTypeCard';
 
 export default function Landing() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
 
   // Apple-style custom easing
-  const easeOutExpo = [0.16, 1, 0.3, 1];
+  const easeOutExpo: Easing = [0.16, 1, 0.3, 1];
 
   // Subtle parallax for background image only
   const imageY = useTransform(scrollY, [0, 500], [0, -50]);
@@ -135,47 +136,16 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.1 }}
-              whileHover={prefersReducedMotion ? {} : { y: -4, transition: { duration: 0.3 } }}
-              className="group relative bg-white rounded-2xl overflow-hidden border-[1.5px] border-slate-200/60 hover:border-slate-300/80 transition-all duration-300"
-              style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}
             >
-              <div className="relative h-64 overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80"
-                  alt="Player"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  loading="lazy"
+              <Link to="/player/profile/create" className="block h-full">
+                <UserTypeCard
+                  title="For players"
+                  description="Showcase your skills, find tryouts, and connect with teams looking for talent."
+                  image="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80"
+                  icon={Users}
+                  onClick={() => { }} // Link handles navigation
                 />
-                <div className="absolute bottom-4 left-4">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg"
-                  >
-                    <Users className="w-7 h-7 text-blue-600" />
-                  </motion.div>
-                </div>
-              </div>
-
-              <div className="p-10">
-                <h3
-                  className="text-3xl font-semibold text-[rgb(29,29,31)] mb-3"
-                  style={{ letterSpacing: '-0.01em', fontWeight: 600 }}
-                >
-                  For players
-                </h3>
-                <p className="text-slate-600 mb-6 leading-relaxed text-sm">
-                  Showcase your skills, find tryouts, and connect with teams looking for talent.
-                </p>
-                <Link
-                  to="/player/profile/create"
-                  className="inline-flex items-center justify-center w-full px-8 py-3.5 bg-[rgb(29,29,31)] text-white font-semibold rounded-full hover:bg-[rgb(51,51,54)] transition-all duration-300 active:scale-[0.98]"
-                  style={{ letterSpacing: '-0.01em' }}
-                >
-                  <span>Get started</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </div>
+              </Link>
             </motion.div>
 
             {/* Organization Card - Featured */}
@@ -184,54 +154,18 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.2 }}
-              whileHover={prefersReducedMotion ? {} : { y: -4, transition: { duration: 0.3 } }}
-              className="group relative bg-white rounded-2xl overflow-hidden border-[1.5px] border-blue-200 transition-all duration-300"
-              style={{ boxShadow: '0 12px 48px rgba(0,113,227,0.12)' }}
             >
-              {/* Featured Badge */}
-              <div className="absolute top-4 right-4 z-10">
-                <span className="px-3 py-1 bg-[rgb(0,113,227)] text-white text-xs font-semibold rounded-full">
-                  POPULAR
-                </span>
-              </div>
-
-              <div className="relative h-64 overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1530893609608-32a9af3aa95c?w=800&q=80"
-                  alt="Organization"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  loading="lazy"
+              <Link to="/onboarding/organization" className="block h-full">
+                <UserTypeCard
+                  title="For organizations"
+                  description="Manage teams, discover players, organize tournaments, and streamline operations."
+                  image="https://images.unsplash.com/photo-1530893609608-32a9af3aa95c?w=800&q=80"
+                  icon={Building2}
+                  onClick={() => { }} // Link handles navigation
+                  buttonColor="bg-[rgb(0,113,227)]"
+                  popular
                 />
-                <div className="absolute bottom-4 left-4">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg"
-                  >
-                    <Building2 className="w-7 h-7 text-cyan-600" />
-                  </motion.div>
-                </div>
-              </div>
-
-              <div className="p-10">
-                <h3
-                  className="text-3xl font-semibold text-[rgb(29,29,31)] mb-3"
-                  style={{ letterSpacing: '-0.01em', fontWeight: 600 }}
-                >
-                  For organizations
-                </h3>
-                <p className="text-slate-600 mb-6 leading-relaxed text-sm">
-                  Manage teams, discover players, organize tournaments, and streamline operations.
-                </p>
-                <Link
-                  to="/onboarding/organization"
-                  className="inline-flex items-center justify-center w-full px-8 py-3.5 bg-[rgb(0,113,227)] text-white font-semibold rounded-full hover:bg-[rgb(0,98,204)] transition-all duration-300 active:scale-[0.98]"
-                  style={{ letterSpacing: '-0.01em' }}
-                >
-                  <span>Get started</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </div>
+              </Link>
             </motion.div>
 
             {/* Trainer Card */}
@@ -240,47 +174,16 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.3 }}
-              whileHover={prefersReducedMotion ? {} : { y: -4, transition: { duration: 0.3 } }}
-              className="group relative bg-white rounded-2xl overflow-hidden border-[1.5px] border-slate-200/60 hover:border-slate-300/80 transition-all duration-300"
-              style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}
             >
-              <div className="relative h-64 overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=80"
-                  alt="Trainer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  loading="lazy"
+              <Link to="/signup" className="block h-full">
+                <UserTypeCard
+                  title="For trainers"
+                  description="Offer your expertise, connect with athletes, and grow your training business."
+                  image="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=80"
+                  icon={GraduationCap}
+                  onClick={() => { }} // Link handles navigation
                 />
-                <div className="absolute bottom-4 left-4">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg"
-                  >
-                    <GraduationCap className="w-7 h-7 text-purple-600" />
-                  </motion.div>
-                </div>
-              </div>
-
-              <div className="p-10">
-                <h3
-                  className="text-3xl font-semibold text-[rgb(29,29,31)] mb-3"
-                  style={{ letterSpacing: '-0.01em', fontWeight: 600 }}
-                >
-                  For trainers
-                </h3>
-                <p className="text-slate-600 mb-6 leading-relaxed text-sm">
-                  Offer your expertise, connect with athletes, and grow your training business.
-                </p>
-                <Link
-                  to="/signup"
-                  className="inline-flex items-center justify-center w-full px-8 py-3.5 bg-[rgb(29,29,31)] text-white font-semibold rounded-full hover:bg-[rgb(51,51,54)] transition-all duration-300 active:scale-[0.98]"
-                  style={{ letterSpacing: '-0.01em' }}
-                >
-                  <span>Get started</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </div>
+              </Link>
             </motion.div>
           </div>
         </div>
