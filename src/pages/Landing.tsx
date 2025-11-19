@@ -2,9 +2,6 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, Easing } from 'framer-motion';
 import { useRef } from 'react';
 import {
-  Users,
-  Building2,
-  GraduationCap,
   ArrowRight,
   Trophy,
   Calendar,
@@ -139,10 +136,11 @@ export default function Landing() {
             >
               <Link to="/player/profile/create" className="block h-full">
                 <UserTypeCard
-                  title="For players"
+                  title="Player"
+                  roleLabel="Role"
                   description="Showcase your skills, find tryouts, and connect with teams looking for talent."
-                  image="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80"
-                  icon={Users}
+                  image="https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?auto=format&fit=crop&w=800&q=80"
+                  color="bg-yellow-400"
                   onClick={() => { }} // Link handles navigation
                 />
               </Link>
@@ -157,13 +155,12 @@ export default function Landing() {
             >
               <Link to="/onboarding/organization" className="block h-full">
                 <UserTypeCard
-                  title="For organizations"
+                  title="Organization"
+                  roleLabel="Role"
                   description="Manage teams, discover players, organize tournaments, and streamline operations."
-                  image="https://images.unsplash.com/photo-1530893609608-32a9af3aa95c?w=800&q=80"
-                  icon={Building2}
+                  image="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80"
+                  color="bg-green-500"
                   onClick={() => { }} // Link handles navigation
-                  buttonColor="bg-[rgb(0,113,227)]"
-                  popular
                 />
               </Link>
             </motion.div>
@@ -177,10 +174,11 @@ export default function Landing() {
             >
               <Link to="/signup" className="block h-full">
                 <UserTypeCard
-                  title="For trainers"
+                  title="Trainer"
+                  roleLabel="Role"
                   description="Offer your expertise, connect with athletes, and grow your training business."
-                  image="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=80"
-                  icon={GraduationCap}
+                  image="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80"
+                  color="bg-red-500"
                   onClick={() => { }} // Link handles navigation
                 />
               </Link>

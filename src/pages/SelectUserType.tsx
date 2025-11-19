@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, Award, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,12 +131,14 @@ export default function SelectUserType() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
+            className="h-full"
           >
             <UserTypeCard
-              title="For players"
+              title="Player"
+              roleLabel="Role"
               description="Showcase your skills, find tryouts, and connect with teams looking for talent."
-              image="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=800&q=80"
-              icon={Users}
+              image="https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?auto=format&fit=crop&w=800&q=80"
+              color="bg-yellow-400"
               onClick={() => handleSelectType('player')}
             />
           </motion.div>
@@ -146,15 +148,15 @@ export default function SelectUserType() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            className="h-full"
           >
             <UserTypeCard
-              title="For organizations"
+              title="Organization"
+              roleLabel="Role"
               description="Manage teams, discover players, organize tournaments, and streamline operations."
-              image="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80"
-              icon={Building2}
+              image="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80"
+              color="bg-green-500"
               onClick={() => handleSelectType('organization')}
-              buttonColor="bg-[rgb(0,113,227)]"
-              popular
             />
           </motion.div>
 
@@ -163,12 +165,14 @@ export default function SelectUserType() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
+            className="h-full"
           >
             <UserTypeCard
-              title="For trainers"
+              title="Trainer"
+              roleLabel="Role"
               description="Offer your expertise, connect with athletes, and grow your training business."
-              image="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80"
-              icon={Award}
+              image="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80"
+              color="bg-red-500"
               onClick={() => handleSelectType('trainer')}
             />
           </motion.div>

@@ -6,73 +6,69 @@ interface UserTypeCardProps {
     title: string;
     description: string;
     image: string;
-    icon: LucideIcon;
+    icon?: LucideIcon;
     onClick: () => void;
-    buttonColor?: string;
-    buttonTextColor?: string;
-    popular?: boolean;
+    color: string; // e.g., "bg-yellow-400"
+    roleLabel?: string;
 }
 
 export function UserTypeCard({
     title,
     description,
     image,
-    icon: Icon,
     onClick,
-    buttonColor = 'bg-[rgb(29,29,31)]',
-    buttonTextColor = 'text-white',
-    popular = false,
+    color,
+    roleLabel = "Role",
 }: UserTypeCardProps) {
     return (
         <motion.div
             whileHover={{ y: -8 }}
-            className="group relative flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-full transition-shadow hover:shadow-xl"
+            className="group relative flex flex-col items-center bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 h-full transition-all duration-300 hover:shadow-xl"
         >
-            {/* Image Header */}
-            <div className="relative h-48 overflow-hidden">
-                <div className="absolute inset-0 bg-slate-200 animate-pulse" />
-                <img
-                    src={image}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    loading="lazy"
-                />
+            {/* Top Label */}
+            <div className="w-full flex justify-start mb-6">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    {roleLabel}
+                </span>
+            </div>
 
-                {/* Popular Badge */}
-                {popular && (
-                    <div className="absolute top-4 right-4 bg-[rgb(0,113,227)] text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                        POPULAR
-                    </div>
-                )}
+            {/* Circular Image Container */}
+            <div className="relative mb-8 group-hover:scale-105 transition-transform duration-500">
+                {/* Colored Background Circle */}
+                <div className={cn(
+                    "absolute inset-0 rounded-full opacity-20 scale-110 transition-transform duration-500 group-hover:scale-125",
+                    color
+                )} />
 
-                {/* Icon Badge */}
-                <div className="absolute bottom-4 left-4 w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-[rgb(0,113,227)]" />
+                {/* Image Circle */}
+                <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                    <img
+                        src={image}
+                        alt={title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                    />
                 </div>
             </div>
 
             {/* Content */}
-            <div className="flex flex-col flex-grow p-6 pt-8">
-                <h3 className="text-2xl font-bold text-[rgb(29,29,31)] mb-3">
+            <div className="flex flex-col items-center text-center flex-grow">
+                <h3 className="text-3xl font-bold text-[rgb(29,29,31)] mb-4">
                     {title}
                 </h3>
-                <p className="text-[rgb(134,142,150)] text-sm leading-relaxed mb-8 flex-grow">
+                <p className="text-[rgb(134,142,150)] text-sm leading-relaxed mb-8 max-w-[240px]">
                     {description}
                 </p>
-
-                {/* Button */}
-                <button
-                    onClick={onClick}
-                    className={cn(
-                        "w-full py-3 px-6 rounded-full font-medium flex items-center justify-center gap-2 transition-all duration-300 group-hover:gap-3",
-                        buttonColor,
-                        buttonTextColor
-                    )}
-                >
-                    Get started
-                    <ArrowRight className="w-4 h-4" />
-                </button>
             </div>
+
+            {/* Button */}
+            <button
+                onClick={onClick}
+                className="mt-auto w-full max-w-[160px] py-3 px-6 rounded-full bg-[rgb(29,29,31)] text-white font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 group-hover:bg-black group-hover:scale-105 shadow-md hover:shadow-lg"
+            >
+                Select
+                <ArrowRight className="w-4 h-4" />
+            </button>
         </motion.div>
     );
 }
