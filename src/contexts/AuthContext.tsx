@@ -72,7 +72,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
           if (exchangeError) {
             console.error('AuthContext: Manual exchange failed:', exchangeError);
-            // We should probably stop loading here if it failed
+            // FORCE ALERT TO SEE ERROR
+            alert(`LOGIN FAILED: ${exchangeError.message || JSON.stringify(exchangeError)}`);
+
             setLoading(false);
             globalIsHandlingRedirect = false;
           } else {
