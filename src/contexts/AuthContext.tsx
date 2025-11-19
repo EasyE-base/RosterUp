@@ -41,7 +41,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
+
+      // If no session but we have a code, exchange it manually
+      const code = new URLSearchParams(window.location.search).get('code');
+      if (!session && code) {
+        console.log('AuthContext: No session found but code present, exchanging manually...');
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
+          if (exchangeError) {
+            console.error('AuthContext: Manual exchange failed:', exchangeError);
+            // We should probably stop loading here if it failed
+            setLoading(false);
+            globalIsHandlingRedirect = false;
+          } else {
+            console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
+            // The onAuthStateChange should pick this up, but we can set it here too
+            setSession(data.session);
+            setUser(data.session?.user ?? null);
+            if (data.session?.user) {
+              loadUserProfile(data.session.user.id);
+            }
+          }
+        });
+      } else if (session?.user) {
         loadUserProfile(session.user.id);
         globalIsHandlingRedirect = false; // Session found, no longer waiting
       } else if (!globalIsHandlingRedirect) {

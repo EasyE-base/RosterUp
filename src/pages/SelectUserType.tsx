@@ -13,74 +13,19 @@ export default function SelectUserType() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { user, profile, organization, player, trainer, loading: authLoading } = useAuth();
-  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
-
-  // Handle OAuth callback manually
-  useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const code = searchParams.get('code');
-      const error = searchParams.get('error');
-      const errorDescription = searchParams.get('error_description');
-
-      if (error) {
-        console.error('OAuth Error from URL:', error, errorDescription);
-        setError(`Sign in failed: ${errorDescription || error}`);
-        return;
-      }
-
-      if (code) {
-        console.log('SelectUserType: Detected Auth Code, attempting manual exchange...');
-        setIsProcessingOAuth(true);
-
-        try {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) {
-            console.error('Manual exchange failed:', exchangeError);
-            // If manual exchange fails, we can't do much else.
-            // But sometimes it fails because it was already consumed by the auto-handler.
-            // So we check if we have a user anyway.
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser) {
-              console.log('Exchange failed but user is logged in (likely race condition), proceeding...');
-              return; // The main auth effect will handle the redirect
-            }
-
-            throw exchangeError;
-          }
-
-          console.log('Manual exchange successful:', data.session?.user?.id);
-          // Success! The main auth effect will see the user and redirect.
-        } catch (err) {
-          console.error('Error processing OAuth callback:', err);
-          setError(err instanceof Error ? err.message : 'Failed to complete sign in');
-          setIsProcessingOAuth(false);
-        }
-      }
-    };
-
-    handleOAuthCallback();
-  }, []);
 
   // Redirect if not authenticated or already has complete setup
   useEffect(() => {
-    console.log('SelectUserType: Checking auth state', { authLoading, isProcessingOAuth, user: user?.id, profile: profile?.id });
+    console.log('SelectUserType: Checking auth state', { authLoading, user: user?.id, profile: profile?.id });
 
-    if (authLoading || isProcessingOAuth) {
-      console.log('SelectUserType: Still loading auth or processing OAuth...');
+    if (authLoading) {
+      console.log('SelectUserType: Still loading auth...');
       return;
     }
 
     if (!user) {
-      // Only redirect if we are NOT currently processing an OAuth code
-      const hasCode = new URLSearchParams(window.location.search).has('code');
-      if (!hasCode) {
-        console.log('SelectUserType: No user found and no code param, redirecting to login');
-        navigate('/login', { replace: true });
-      } else {
-        console.log('SelectUserType: No user yet, but code param exists. Waiting...');
-      }
+      console.log('SelectUserType: No user found, redirecting to login');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -91,7 +36,7 @@ export default function SelectUserType() {
     }
 
     console.log('SelectUserType: User authenticated and needs to select type');
-  }, [user, profile, organization, player, trainer, navigate, authLoading, isProcessingOAuth]);
+  }, [user, profile, organization, player, trainer, navigate, authLoading]);
 
   const handleContinue = async () => {
     if (!userType) {
@@ -160,12 +105,12 @@ export default function SelectUserType() {
     }
   };
 
-  if (authLoading || isProcessingOAuth || !user) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-[rgb(247,247,249)] flex flex-col items-center justify-center p-4">
         <Loader2 className="h-8 w-8 animate-spin text-[rgb(0,113,227)] mb-4" />
         <p className="text-[rgb(134,142,150)]">
-          {isProcessingOAuth ? 'Finishing sign in...' : 'Loading...'}
+          Loading...
         </p>
       </div>
     );
