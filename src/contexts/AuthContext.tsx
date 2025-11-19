@@ -36,24 +36,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const currentUrl = window.location.href;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const errorDesc = params.get('error_description');
+
     console.log('AuthContext: Mounting', {
-      globalIsHandlingRedirect,
-      hasAuthParams,
-      hasErrorParams,
-      href: window.location.href
+      url: currentUrl,
+      code: code ? 'PRESENT' : 'MISSING',
+      error,
+      globalIsHandlingRedirect
     });
 
-    if (hasErrorParams) {
-      console.error('AuthContext: Detected error params in URL, stopping loading.');
-      const params = new URLSearchParams(window.location.search);
-      const error = params.get('error');
-      const errorDesc = params.get('error_description');
-      console.error('Auth Error:', error, errorDesc);
-      // You might want to set a global error state here if available
+    if (error) {
+      alert(`LOGIN ERROR: ${errorDesc || error}`);
       setLoading(false);
       globalIsHandlingRedirect = false;
+      return;
     }
 
+    // NUCLEAR OPTION: If code exists, exchange it IMMEDIATELY.
+    // Do not wait for getSession. Do not pass Go.
+    if (code) {
+      console.log('AuthContext: Code found, exchanging IMMEDIATELY...');
+
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
+        if (exchangeError) {
+          console.error('AuthContext: Manual exchange failed:', exchangeError);
+          alert(`LOGIN FAILED: ${exchangeError.message}`);
+          setLoading(false);
+          globalIsHandlingRedirect = false;
+        } else {
+          console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
+          alert('LOGIN SUCCESS! Session established.');
+
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          if (data.session?.user) {
+            loadUserProfile(data.session.user.id);
+          }
+          // Clear the code from URL to prevent re-use issues (optional but good)
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      });
+
+      return; // Skip the standard getSession check if we are processing a code
+    }
+
+    // Standard session check (only if no code)
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('AuthContext: Error getting session:', error);
@@ -61,37 +92,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         globalIsHandlingRedirect = false;
       }
-
       setSession(session);
       setUser(session?.user ?? null);
 
-      // If no session but we have a code, exchange it manually
-      const code = new URLSearchParams(window.location.search).get('code');
-      if (!session && code) {
-        console.log('AuthContext: No session found but code present, exchanging manually...');
-        supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
-          if (exchangeError) {
-            console.error('AuthContext: Manual exchange failed:', exchangeError);
-            // FORCE ALERT TO SEE ERROR
-            alert(`LOGIN FAILED: ${exchangeError.message || JSON.stringify(exchangeError)}`);
-
-            setLoading(false);
-            globalIsHandlingRedirect = false;
-          } else {
-            console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
-            // The onAuthStateChange should pick this up, but we can set it here too
-            setSession(data.session);
-            setUser(data.session?.user ?? null);
-            if (data.session?.user) {
-              loadUserProfile(data.session.user.id);
-            }
-          }
-        });
-      } else if (session?.user) {
+      if (session?.user) {
         loadUserProfile(session.user.id);
-        globalIsHandlingRedirect = false; // Session found, no longer waiting
+        globalIsHandlingRedirect = false;
       } else if (!globalIsHandlingRedirect) {
-        // Only set loading to false if we're NOT waiting for a redirect to resolve
         setLoading(false);
       }
     });

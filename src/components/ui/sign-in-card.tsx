@@ -71,13 +71,10 @@ export function SignInCard({
   const handleGoogleSignIn = async () => {
     console.log('Initiating Google Sign-In...');
     try {
-      const redirectTo = `${window.location.origin}/select-user-type`;
-      console.log('Redirect URL:', redirectTo);
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
+          redirectTo: 'https://roster-up.vercel.app/select-user-type',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
