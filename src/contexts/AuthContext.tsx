@@ -21,7 +21,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Global variable to track redirect state across remounts (Strict Mode)
-let globalIsHandlingRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token');
+// We strictly check for 'code=' or 'access_token' AND ensure it's not just an error
+const hasAuthParams = (window.location.search.includes('code=') || window.location.hash.includes('access_token'));
+const hasErrorParams = (window.location.search.includes('error=') || window.location.hash.includes('error='));
+let globalIsHandlingRedirect = hasAuthParams && !hasErrorParams;
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -33,36 +36,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('AuthContext: Mounting, globalIsHandlingRedirect:', globalIsHandlingRedirect);
+    console.log('AuthContext: Mounting', {
+      globalIsHandlingRedirect,
+      hasAuthParams,
+      hasErrorParams,
+      href: window.location.href
+    });
+
+    if (hasErrorParams) {
+      console.error('AuthContext: Detected error params in URL, stopping loading.');
+      const params = new URLSearchParams(window.location.search);
+      const error = params.get('error');
+      const errorDesc = params.get('error_description');
+      console.error('Auth Error:', error, errorDesc);
+      // You might want to set a global error state here if available
+      setLoading(false);
+      globalIsHandlingRedirect = false;
+    }
 
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('AuthContext: Error getting session:', error);
+        // If getSession returns an error (e.g. invalid grant), we should stop loading
+        setLoading(false);
+        globalIsHandlingRedirect = false;
       }
+
       setSession(session);
       setUser(session?.user ?? null);
 
-      // If no session but we have a code, exchange it manually
-      const code = new URLSearchParams(window.location.search).get('code');
-      if (!session && code) {
-        console.log('AuthContext: No session found but code present, exchanging manually...');
-        supabase.auth.exchangeCodeForSession(code).then(({ data, error: exchangeError }) => {
-          if (exchangeError) {
-            console.error('AuthContext: Manual exchange failed:', exchangeError);
-            // We should probably stop loading here if it failed
-            setLoading(false);
-            globalIsHandlingRedirect = false;
-          } else {
-            console.log('AuthContext: Manual exchange successful', data.session?.user?.id);
-            // The onAuthStateChange should pick this up, but we can set it here too
-            setSession(data.session);
-            setUser(data.session?.user ?? null);
-            if (data.session?.user) {
-              loadUserProfile(data.session.user.id);
-            }
-          }
-        });
-      } else if (session?.user) {
+      if (session?.user) {
         loadUserProfile(session.user.id);
         globalIsHandlingRedirect = false; // Session found, no longer waiting
       } else if (!globalIsHandlingRedirect) {

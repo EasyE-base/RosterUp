@@ -4,14 +4,7 @@ import { supabase as supabaseConfig } from '../config/app.config';
 // Create Supabase client using centralized configuration
 export const supabase = createClient(
   supabaseConfig.url,
-  supabaseConfig.anonKey,
-  {
-    auth: {
-      detectSessionInUrl: false,
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  }
+  supabaseConfig.anonKey
 );
 
 export type UserType = 'organization' | 'player' | 'trainer';
