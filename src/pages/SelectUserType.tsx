@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Users, Award, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { UserType } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
