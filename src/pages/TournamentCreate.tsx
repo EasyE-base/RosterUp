@@ -6,11 +6,10 @@ import {
   Calendar,
   Users,
   DollarSign,
-  Loader2,
   AlertCircle,
   Navigation,
-  Shield,
   Image,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -22,6 +21,15 @@ import {
   type TournamentClassificationAcceptance,
   type TeamClassification,
 } from '../constants/classifications';
+import {
+  AppleButton,
+  AppleCard,
+  AppleCardContent,
+  AppleHeading,
+  AppleInput,
+  AppleSelect,
+  AppleTextarea,
+} from '../components/apple';
 
 export default function TournamentCreate() {
   const [loading, setLoading] = useState(false);
@@ -164,143 +172,148 @@ export default function TournamentCreate() {
     }
   };
 
+  const sportOptions = [
+    { value: '', label: 'Select a sport' },
+    { value: 'Basketball', label: 'Basketball' },
+    { value: 'Soccer', label: 'Soccer' },
+    { value: 'Baseball', label: 'Baseball' },
+    { value: 'Football', label: 'Football' },
+    { value: 'Volleyball', label: 'Volleyball' },
+    { value: 'Softball', label: 'Softball' },
+    { value: 'Hockey', label: 'Hockey' },
+    { value: 'Lacrosse', label: 'Lacrosse' },
+  ];
+
+  const formatOptions = [
+    { value: 'single_elimination', label: 'Single Elimination' },
+    { value: 'double_elimination', label: 'Double Elimination' },
+    { value: 'round_robin', label: 'Round Robin' },
+    { value: 'pool_play', label: 'Pool Play' },
+    { value: 'swiss', label: 'Swiss System' },
+  ];
+
+  const countryOptions = [
+    { value: 'USA', label: 'United States' },
+    { value: 'Canada', label: 'Canada' },
+    { value: 'Mexico', label: 'Mexico' },
+    { value: 'UK', label: 'United Kingdom' },
+  ];
+
+  const statusOptions = [
+    { value: 'draft', label: 'Draft (Not visible to public)' },
+    { value: 'open', label: 'Open (Accept applications)' },
+  ];
+
+  const classificationOptions = TOURNAMENT_CLASSIFICATION_OPTIONS.map(option => ({
+    value: option.value,
+    label: `${option.label} - ${option.description}`
+  }));
+
+  const sanctioningOptions = [
+    { value: '', label: 'No sanctioning body' },
+    ...getSanctioningBodiesBySport(formData.sport).map(body => ({
+      value: body.value,
+      label: `${body.label}${body.description ? ` - ${body.description}` : ''}`
+    }))
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 pt-32 pb-12">
+    <div className="min-h-screen bg-[rgb(251,251,253)] pt-32 pb-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <button
+          onClick={() => navigate('/tournaments')}
+          className="flex items-center space-x-2 text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to tournaments</span>
+        </button>
+
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Create Tournament</h1>
-          <p className="text-slate-400">
+          <AppleHeading level={1} size="card" className="mb-2">Create Tournament</AppleHeading>
+          <p className="text-[rgb(134,142,150)] text-lg">
             Host a tournament and invite organizations to compete
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="mb-6 p-4 bg-[rgb(255,59,48)]/10 border border-[rgb(255,59,48)]/20 rounded-lg flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-[rgb(255,59,48)] flex-shrink-0 mt-0.5" />
+            <p className="text-[rgb(255,59,48)] text-sm">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Basic Information</h2>
+          <AppleCard>
+            <AppleCardContent className="p-6 space-y-6">
+              <AppleHeading level={3} size="feature" className="mb-6">Basic Information</AppleHeading>
 
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Tournament Title *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="e.g., Summer Showdown 2025"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                />
-              </div>
+              <AppleInput
+                label="Tournament Title *"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="e.g., Summer Showdown 2025"
+                required
+                fullWidth
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe your tournament, format, and what makes it special..."
-                  rows={4}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                />
-              </div>
+              <AppleTextarea
+                label="Description *"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe your tournament, format, and what makes it special..."
+                rows={4}
+                required
+                fullWidth
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Sport *
-                  </label>
-                  <select
-                    value={formData.sport}
-                    onChange={(e) => setFormData({ ...formData, sport: e.target.value, sanctioning_body: '' })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    required
-                  >
-                    <option value="">Select a sport</option>
-                    <option value="Basketball">Basketball</option>
-                    <option value="Soccer">Soccer</option>
-                    <option value="Baseball">Baseball</option>
-                    <option value="Football">Football</option>
-                    <option value="Volleyball">Volleyball</option>
-                    <option value="Softball">Softball</option>
-                    <option value="Hockey">Hockey</option>
-                    <option value="Lacrosse">Lacrosse</option>
-                  </select>
-                </div>
+                <AppleSelect
+                  label="Sport *"
+                  value={formData.sport}
+                  onChange={(e) => setFormData({ ...formData, sport: e.target.value, sanctioning_body: '' })}
+                  options={sportOptions}
+                  required
+                  fullWidth
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Format Type *
-                  </label>
-                  <select
-                    value={formData.format_type}
-                    onChange={(e) => setFormData({ ...formData, format_type: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    required
-                  >
-                    <option value="single_elimination">Single Elimination</option>
-                    <option value="double_elimination">Double Elimination</option>
-                    <option value="round_robin">Round Robin</option>
-                    <option value="pool_play">Pool Play</option>
-                    <option value="swiss">Swiss System</option>
-                  </select>
-                </div>
+                <AppleSelect
+                  label="Format Type *"
+                  value={formData.format_type}
+                  onChange={(e) => setFormData({ ...formData, format_type: e.target.value })}
+                  options={formatOptions}
+                  required
+                  fullWidth
+                />
               </div>
 
               {formData.sport && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
-                    <Shield className="w-4 h-4 mr-2 text-yellow-400" />
-                    Sanctioning Body (Optional)
-                  </label>
-                  <select
-                    value={formData.sanctioning_body}
-                    onChange={(e) => setFormData({ ...formData, sanctioning_body: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  >
-                    <option value="">No sanctioning body</option>
-                    {getSanctioningBodiesBySport(formData.sport).map((body) => (
-                      <option key={body.value} value={body.value}>
-                        {body.label} {body.description && `- ${body.description}`}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-slate-400">
-                    Select the governing body that will sanction this tournament. This helps teams understand which rules and regulations will apply.
-                  </p>
-                </div>
+                <AppleSelect
+                  label="Sanctioning Body (Optional)"
+                  value={formData.sanctioning_body}
+                  onChange={(e) => setFormData({ ...formData, sanctioning_body: e.target.value })}
+                  options={sanctioningOptions}
+                  helperText="Select the governing body that will sanction this tournament. This helps teams understand which rules and regulations will apply."
+                  fullWidth
+                />
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
-                  <Image className="w-4 h-4 mr-2 text-purple-400" />
-                  Tournament Image URL (Optional)
-                </label>
-                <input
+                <AppleInput
+                  label="Tournament Image URL (Optional)"
                   type="url"
                   value={formData.image_url}
                   onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="https://example.com/tournament-image.jpg"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  helperText="Add a cover image for your tournament. Use a direct image URL (e.g., from Unsplash, Imgur, or your own hosting)."
+                  leftIcon={<Image className="w-4 h-4 text-[rgb(175,82,222)]" />}
+                  fullWidth
                 />
-                <p className="mt-2 text-xs text-slate-400">
-                  Add a cover image for your tournament. Use a direct image URL (e.g., from Unsplash, Imgur, or your own hosting).
-                </p>
                 {formData.image_url && (
                   <div className="mt-3">
                     <img
                       src={formData.image_url}
                       alt="Tournament preview"
-                      className="w-full h-48 object-cover rounded-lg border border-slate-700"
+                      className="w-full h-48 object-cover rounded-lg border border-[rgb(210,210,215)]"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -309,68 +322,50 @@ export default function TournamentCreate() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Age Group (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.age_group}
-                  onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
-                  placeholder="e.g., 10U, 12U, 14U, 16U, 18U"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                />
-                <p className="mt-2 text-xs text-slate-400">
-                  Specify the age group for age-specific classification rules (e.g., relaxed requirements for younger age groups).
-                </p>
-              </div>
-            </div>
-          </div>
+              <AppleInput
+                label="Age Group (Optional)"
+                value={formData.age_group}
+                onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
+                placeholder="e.g., 10U, 12U, 14U, 16U, 18U"
+                helperText="Specify the age group for age-specific classification rules (e.g., relaxed requirements for younger age groups)."
+                fullWidth
+              />
+            </AppleCardContent>
+          </AppleCard>
 
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
-              Team Classification & Eligibility
-            </h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Classification Acceptance Policy *
-                </label>
-                <select
-                  value={formData.classification_acceptance}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      classification_acceptance: e.target.value as TournamentClassificationAcceptance,
-                      accepted_classifications: [],
-                    })
-                  }
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                >
-                  {TOURNAMENT_CLASSIFICATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label} - {option.description}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs text-slate-400">
-                  Determines which team classification levels can enter this tournament. This ensures competitive balance.
-                </p>
+          <AppleCard>
+            <AppleCardContent className="p-6 space-y-6">
+              <div className="flex items-center mb-6">
+                <Trophy className="w-5 h-5 mr-2 text-[rgb(255,149,0)]" />
+                <AppleHeading level={3} size="feature">Team Classification & Eligibility</AppleHeading>
               </div>
+
+              <AppleSelect
+                label="Classification Acceptance Policy *"
+                value={formData.classification_acceptance}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    classification_acceptance: e.target.value as TournamentClassificationAcceptance,
+                    accepted_classifications: [],
+                  })
+                }
+                options={classificationOptions}
+                helperText="Determines which team classification levels can enter this tournament. This ensures competitive balance."
+                required
+                fullWidth
+              />
 
               {formData.classification_acceptance === 'CUSTOM' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                  <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-3">
                     Select Accepted Classifications *
                   </label>
                   <div className="space-y-2">
                     {CLASSIFICATION_LEVELS.map((level) => (
                       <label
                         key={level.value}
-                        className="flex items-center space-x-3 p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 cursor-pointer transition-colors"
+                        className="flex items-center space-x-3 p-3 bg-[rgb(245,245,247)] rounded-lg hover:bg-[rgb(240,240,242)] cursor-pointer transition-colors"
                       >
                         <input
                           type="checkbox"
@@ -393,31 +388,31 @@ export default function TournamentCreate() {
                               });
                             }
                           }}
-                          className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                          className="w-4 h-4 text-[rgb(0,113,227)] border-[rgb(210,210,215)] rounded focus:ring-[rgb(0,113,227)] focus:ring-2"
                         />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
                             <span
-                              className={`px-2 py-1 text-xs font-bold rounded bg-${level.color}-500/20 text-${level.color}-400`}
+                              className={`px-2 py-1 text-xs font-bold rounded bg-${level.color}-100 text-${level.color}-700`}
                             >
                               {level.shortLabel}
                             </span>
-                            <span className="text-white font-medium">{level.label}</span>
+                            <span className="text-[rgb(29,29,31)] font-medium">{level.label}</span>
                           </div>
-                          <p className="text-xs text-slate-400 mt-1">{level.description}</p>
+                          <p className="text-xs text-[rgb(134,142,150)] mt-1">{level.description}</p>
                         </div>
                       </label>
                     ))}
                   </div>
-                  <p className="mt-3 text-xs text-slate-400">
+                  <p className="mt-3 text-xs text-[rgb(134,142,150)]">
                     Select which team classifications are eligible to enter this tournament.
                   </p>
                 </div>
               )}
 
               {formData.classification_acceptance !== 'CUSTOM' && (
-                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-sm text-blue-300 font-medium mb-2">
+                <div className="p-4 bg-[rgb(0,113,227)]/5 border border-[rgb(0,113,227)]/20 rounded-lg">
+                  <p className="text-sm text-[rgb(0,113,227)] font-medium mb-2">
                     Accepted Team Classifications:
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -428,7 +423,7 @@ export default function TournamentCreate() {
                       return level ? (
                         <span
                           key={levelValue}
-                          className={`px-3 py-1 text-sm font-bold rounded-full bg-${level.color}-500/20 text-${level.color}-400 border border-${level.color}-500/30`}
+                          className={`px-3 py-1 text-sm font-bold rounded-full bg-${level.color}-100 text-${level.color}-700 border border-${level.color}-200`}
                         >
                           {level.shortLabel} - {level.label}
                         </span>
@@ -437,49 +432,39 @@ export default function TournamentCreate() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
+            </AppleCardContent>
+          </AppleCard>
 
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <Calendar className="w-5 h-5 mr-2 text-blue-400" />
-              Dates & Registration
-            </h2>
+          <AppleCard>
+            <AppleCardContent className="p-6 space-y-6">
+              <div className="flex items-center mb-6">
+                <Calendar className="w-5 h-5 mr-2 text-[rgb(0,113,227)]" />
+                <AppleHeading level={3} size="feature">Dates & Registration</AppleHeading>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Start Date *
-                </label>
-                <input
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <AppleInput
+                  label="Start Date *"
                   type="date"
                   value={formData.start_date}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                   required
+                  fullWidth
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  End Date *
-                </label>
-                <input
+                <AppleInput
+                  label="End Date *"
                   type="date"
                   value={formData.end_date}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   min={formData.start_date || new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                   required
+                  fullWidth
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Registration Deadline *
-                </label>
-                <input
+                <AppleInput
+                  label="Registration Deadline *"
                   type="date"
                   value={formData.registration_deadline}
                   onChange={(e) =>
@@ -487,235 +472,168 @@ export default function TournamentCreate() {
                   }
                   max={formData.start_date}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                   required
+                  fullWidth
                 />
               </div>
-            </div>
-          </div>
+            </AppleCardContent>
+          </AppleCard>
 
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <MapPin className="w-5 h-5 mr-2 text-green-400" />
-              Location
-            </h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Venue Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location_name: e.target.value })
-                  }
-                  placeholder="e.g., Riverside Sports Complex"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                />
+          <AppleCard>
+            <AppleCardContent className="p-6 space-y-6">
+              <div className="flex items-center mb-6">
+                <MapPin className="w-5 h-5 mr-2 text-[rgb(52,199,89)]" />
+                <AppleHeading level={3} size="feature">Location</AppleHeading>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Street Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="123 Main Street"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                />
-              </div>
+              <AppleInput
+                label="Venue Name *"
+                value={formData.location_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, location_name: e.target.value })
+                }
+                placeholder="e.g., Riverside Sports Complex"
+                required
+                fullWidth
+              />
+
+              <AppleInput
+                label="Street Address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="123 Main Street"
+                fullWidth
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="San Diego"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    required
-                  />
-                </div>
+                <AppleInput
+                  label="City *"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="San Diego"
+                  required
+                  fullWidth
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    placeholder="CA"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  />
-                </div>
+                <AppleInput
+                  label="State"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder="CA"
+                  fullWidth
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Country *
-                  </label>
-                  <select
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    required
-                  >
-                    <option value="USA">United States</option>
-                    <option value="Canada">Canada</option>
-                    <option value="Mexico">Mexico</option>
-                    <option value="UK">United Kingdom</option>
-                  </select>
-                </div>
+                <AppleSelect
+                  label="Country *"
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  options={countryOptions}
+                  required
+                  fullWidth
+                />
               </div>
 
               <div className="flex items-center space-x-4">
-                <button
+                <AppleButton
                   type="button"
+                  variant="outline"
                   onClick={handleGeocode}
                   disabled={geocoding || !formData.city}
-                  className="px-4 py-2 bg-green-500/20 border border-green-500/50 text-green-400 font-medium rounded-lg hover:bg-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  loading={geocoding}
+                  leftIcon={!geocoding && <Navigation className="w-4 h-4" />}
                 >
-                  {geocoding ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Finding location...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="w-4 h-4" />
-                      <span>Find Coordinates</span>
-                    </>
-                  )}
-                </button>
+                  Find Coordinates
+                </AppleButton>
                 {formData.latitude && formData.longitude && (
-                  <span className="text-sm text-green-400">
+                  <span className="text-sm text-[rgb(52,199,89)] font-medium">
                     ✓ Location found ({formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)})
                   </span>
                 )}
               </div>
-            </div>
-          </div>
+            </AppleCardContent>
+          </AppleCard>
 
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <Users className="w-5 h-5 mr-2 text-cyan-400" />
-              Participants & Details
-            </h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Max Participants *
-                </label>
-                <input
-                  type="number"
-                  value={formData.max_participants}
-                  onChange={(e) =>
-                    setFormData({ ...formData, max_participants: parseInt(e.target.value) })
-                  }
-                  min="4"
-                  max="128"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                />
+          <AppleCard>
+            <AppleCardContent className="p-6 space-y-6">
+              <div className="flex items-center mb-6">
+                <Users className="w-5 h-5 mr-2 text-[rgb(0,199,190)]" />
+                <AppleHeading level={3} size="feature">Participants & Details</AppleHeading>
               </div>
+
+              <AppleInput
+                label="Max Participants *"
+                type="number"
+                value={formData.max_participants}
+                onChange={(e) =>
+                  setFormData({ ...formData, max_participants: parseInt(e.target.value) })
+                }
+                min={4}
+                max={128}
+                required
+                fullWidth
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Entry Fee (Optional)
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="number"
-                      value={formData.entry_fee}
-                      onChange={(e) => setFormData({ ...formData, entry_fee: e.target.value })}
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                    />
-                  </div>
-                </div>
+                <AppleInput
+                  label="Entry Fee (Optional)"
+                  type="number"
+                  value={formData.entry_fee}
+                  onChange={(e) => setFormData({ ...formData, entry_fee: e.target.value })}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  leftIcon={<DollarSign className="w-4 h-4 text-[rgb(134,142,150)]" />}
+                  fullWidth
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Prize Information (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.prize_info}
-                    onChange={(e) => setFormData({ ...formData, prize_info: e.target.value })}
-                    placeholder="e.g., $1000 grand prize"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Requirements (Optional)
-                </label>
-                <textarea
-                  value={formData.requirements}
-                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                  placeholder="List any requirements for participating teams..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                <AppleInput
+                  label="Prize Information (Optional)"
+                  value={formData.prize_info}
+                  onChange={(e) => setFormData({ ...formData, prize_info: e.target.value })}
+                  placeholder="e.g., $1000 grand prize"
+                  fullWidth
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Status *
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                  required
-                >
-                  <option value="draft">Draft (Not visible to public)</option>
-                  <option value="open">Open (Accept applications)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+              <AppleTextarea
+                label="Requirements (Optional)"
+                value={formData.requirements}
+                onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                placeholder="List any requirements for participating teams..."
+                rows={3}
+                fullWidth
+              />
+
+              <AppleSelect
+                label="Status *"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                options={statusOptions}
+                required
+                fullWidth
+              />
+            </AppleCardContent>
+          </AppleCard>
 
           <div className="flex gap-4">
-            <button
+            <AppleButton
               type="button"
+              variant="secondary"
               onClick={() => navigate('/tournaments')}
-              className="flex-1 py-3 px-4 bg-slate-800/50 border border-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all"
+              fullWidth
             >
               Cancel
-            </button>
-            <button
+            </AppleButton>
+            <AppleButton
               type="submit"
+              variant="primary"
               disabled={loading}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              loading={loading}
+              leftIcon={!loading && <Trophy className="w-5 h-5" />}
+              fullWidth
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Creating...</span>
-                </>
-              ) : (
-                <>
-                  <Trophy className="w-5 h-5" />
-                  <span>Create Tournament</span>
-                </>
-              )}
-            </button>
+              Create Tournament
+            </AppleButton>
           </div>
         </form>
       </div>

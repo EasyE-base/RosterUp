@@ -26,6 +26,12 @@ export interface AppleStatCardProps extends React.HTMLAttributes<HTMLDivElement>
   iconColor?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'cyan' | 'gray';
 
   /**
+   * Size variant
+   * @default 'default'
+   */
+  size?: 'default' | 'compact';
+
+  /**
    * Optional trend indicator
    */
   trend?: {
@@ -61,6 +67,7 @@ export const AppleStatCard = React.forwardRef<HTMLDivElement, AppleStatCardProps
       value,
       icon,
       iconColor = 'blue',
+      size = 'default',
       trend,
       subtitle,
       onClick,
@@ -71,6 +78,7 @@ export const AppleStatCard = React.forwardRef<HTMLDivElement, AppleStatCardProps
     },
     ref
   ) => {
+    const isCompact = size === 'compact';
     // Icon background colors
     const iconColorStyles = {
       blue: 'bg-gradient-to-br from-blue-500 to-cyan-400',
@@ -103,7 +111,9 @@ export const AppleStatCard = React.forwardRef<HTMLDivElement, AppleStatCardProps
         ref={ref}
         className={cn(
           // Base styles
-          'bg-white border-[1.5px] border-slate-200/60 rounded-2xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-300',
+          'bg-white border-[1.5px] border-slate-200/60 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-300',
+          // Size-based padding
+          isCompact ? 'p-4' : 'p-6',
           // Click styles
           onClick && 'cursor-pointer hover:border-slate-300/80 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)]',
           className
@@ -116,13 +126,20 @@ export const AppleStatCard = React.forwardRef<HTMLDivElement, AppleStatCardProps
         <div className="flex items-start justify-between">
           {/* Content */}
           <div className="flex-1">
-            <p className="text-sm font-medium text-[rgb(134,142,150)] mb-2">{label}</p>
-            <div className="flex items-baseline gap-3">
-              <p className="text-4xl font-semibold text-[rgb(29,29,31)] tracking-tight">{value}</p>
+            <p className={cn(
+              'font-medium text-[rgb(134,142,150)]',
+              isCompact ? 'text-xs mb-1' : 'text-sm mb-2'
+            )}>{label}</p>
+            <div className="flex items-baseline gap-2">
+              <p className={cn(
+                'font-semibold text-[rgb(29,29,31)] tracking-tight',
+                isCompact ? 'text-xl' : 'text-4xl'
+              )}>{value}</p>
               {trend && (
                 <span
                   className={cn(
-                    'text-sm font-medium',
+                    'font-medium',
+                    isCompact ? 'text-xs' : 'text-sm',
                     trend.isPositive ? 'text-green-600' : 'text-red-600'
                   )}
                 >
@@ -130,13 +147,17 @@ export const AppleStatCard = React.forwardRef<HTMLDivElement, AppleStatCardProps
                 </span>
               )}
             </div>
-            {subtitle && <p className="text-sm text-[rgb(134,142,150)] mt-1">{subtitle}</p>}
+            {subtitle && <p className={cn(
+              'text-[rgb(134,142,150)]',
+              isCompact ? 'text-xs mt-0.5' : 'text-sm mt-1'
+            )}>{subtitle}</p>}
           </div>
 
           {/* Icon Badge */}
           <div
             className={cn(
-              'w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg',
+              'rounded-xl flex items-center justify-center text-white shadow-lg',
+              isCompact ? 'w-10 h-10' : 'w-14 h-14 rounded-2xl',
               iconColorStyles[iconColor]
             )}
           >

@@ -13,9 +13,16 @@ import {
   Mail,
   MapPin,
   Camera,
+  Settings,
+  Image as ImageIcon,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Team, Player } from '../lib/supabase';
+import TeamEditForm from '../components/team/management/TeamEditForm';
+import TeamAchievementsManager from '../components/team/management/TeamAchievementsManager';
+import TeamMediaManager from '../components/team/management/TeamMediaManager';
+import GuestPlayerForm from '../components/team/management/GuestPlayerForm';
 
 interface TeamMember {
   id: string;
@@ -23,6 +30,10 @@ interface TeamMember {
   jersey_number: string | null;
   status: string;
   joined_at: string;
+  is_guest: boolean;
+  guest_first_name: string | null;
+  guest_last_name: string | null;
+  guest_photo_url: string | null;
   players: {
     id: string;
     user_id: string;
@@ -36,7 +47,7 @@ interface TeamMember {
     player_profiles: {
       photo_url: string | null;
     } | null;
-  };
+  } | null;
 }
 
 export default function TeamDetails() {
@@ -53,6 +64,8 @@ export default function TeamDetails() {
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'roster' | 'achievements' | 'media'>('overview');
+  const [activePlayerTab, setActivePlayerTab] = useState<'search' | 'guest'>('search');
 
   useEffect(() => {
     if (id) {
@@ -94,29 +107,32 @@ export default function TeamDetails() {
         .eq('team_id', id)
         .order('joined_at', { ascending: false });
 
-      // Fetch player profile photos separately
+      // Fetch player profile photos separately for registered players only
       if (data && data.length > 0) {
-        const playerIds = data.map((m: any) => m.players.id);
-        console.log('Fetching player profiles for IDs:', playerIds);
-        const { data: playerProfiles, error: profileError } = await supabase
-          .from('player_profiles')
-          .select('id, photo_url')
-          .in('id', playerIds);
+        const registeredMembers = data.filter((m: any) => !m.is_guest && m.players);
+        const userIds = registeredMembers.map((m: any) => m.players.user_id).filter(Boolean);
 
-        console.log('Player profiles fetched:', playerProfiles);
-        if (profileError) console.error('Error fetching player profiles:', profileError);
+        if (userIds.length > 0) {
+          const { data: playerProfiles, error: profileError } = await supabase
+            .from('player_profiles')
+            .select('user_id, photo_url')
+            .in('user_id', userIds);
 
-        // Merge photo URLs into the data
-        if (playerProfiles) {
-          data.forEach((member: any) => {
-            const profile = playerProfiles.find(p => p.id === member.players.id);
-            member.players.player_profiles = profile || null;
-          });
+          if (profileError) console.error('Error fetching player profiles:', profileError);
+
+          // Merge photo URLs into the data for registered players
+          if (playerProfiles) {
+            data.forEach((member: any) => {
+              if (!member.is_guest && member.players) {
+                const profile = playerProfiles.find(p => p.user_id === member.players.user_id);
+                member.players.player_profiles = profile || null;
+              }
+            });
+          }
         }
       }
 
       if (error) throw error;
-      console.log('Team members data:', data);
       setMembers((data as TeamMember[]) || []);
     } catch (error) {
       console.error('Error loading team members:', error);
@@ -140,9 +156,9 @@ export default function TeamDetails() {
 
       if (error) throw error;
 
-      console.log('Player search results:', data);
-
-      const memberPlayerIds = members.map(m => m.players.id);
+      const memberPlayerIds = members
+        .filter(m => !m.is_guest && m.players)
+        .map(m => m.players!.id);
       const filteredResults = (data || []).filter(
         (player: any) => !memberPlayerIds.includes(player.id)
       );
@@ -272,6 +288,7 @@ export default function TeamDetails() {
           <span>Back to Dashboard</span>
         </button>
 
+        {/* Team Header */}
         <div className="bg-white border border-slate-200 rounded-xl p-8 mb-8 shadow-sm">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center space-x-4">
@@ -332,121 +349,240 @@ export default function TeamDetails() {
                 </div>
               </div>
             </div>
-            {organization && (
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowAddPlayerModal(true)}
-                className="px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-medium rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center space-x-2"
+                onClick={() => window.open(`/teams/${team.id}`, '_blank')}
+                className="px-4 py-2 text-[rgb(0,113,227)] bg-[rgb(0,113,227)]/10 font-medium rounded-lg hover:bg-[rgb(0,113,227)]/20 transition-all"
               >
-                <Plus className="w-5 h-5" />
-                <span>Add Player</span>
+                View Public Profile
               </button>
-            )}
+            </div>
           </div>
 
-          {team.description && (
-            <p className="text-[rgb(134,142,150)] mb-4">{team.description}</p>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
-                <Users className="w-5 h-5" />
-                <span className="text-sm">Roster</span>
+          {/* Navigation Tabs */}
+          <div className="flex items-center space-x-6 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'overview'
+                ? 'text-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Overview</span>
               </div>
-              <p className="text-2xl font-bold text-[rgb(29,29,31)]">
-                {members.length} / {team.roster_limit}
-              </p>
-            </div>
+              {activeTab === 'overview' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+              )}
+            </button>
 
-            {team.season && (
-              <div className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
-                  <Calendar className="w-5 h-5" />
-                  <span className="text-sm">Season</span>
-                </div>
-                <p className="text-2xl font-bold text-[rgb(29,29,31)]">{team.season}</p>
+            <button
+              onClick={() => setActiveTab('edit')}
+              className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'edit'
+                ? 'text-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                <span>Edit Profile</span>
               </div>
-            )}
+              {activeTab === 'edit' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('roster')}
+              className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'roster'
+                ? 'text-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span>Roster</span>
+              </div>
+              {activeTab === 'roster' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('achievements')}
+              className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'achievements'
+                ? 'text-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4" />
+                <span>Achievements</span>
+              </div>
+              {activeTab === 'achievements' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('media')}
+              className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'media'
+                ? 'text-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                <span>Media</span>
+              </div>
+              {activeTab === 'media' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+              )}
+            </button>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6">Team Roster</h2>
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
+                <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
+                  <Users className="w-5 h-5" />
+                  <span className="text-sm font-medium">Roster Size</span>
+                </div>
+                <p className="text-3xl font-bold text-[rgb(29,29,31)]">
+                  {members.length} <span className="text-lg text-[rgb(134,142,150)] font-normal">/ {team.roster_limit}</span>
+                </p>
+              </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
-            </div>
-          ) : members.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-[rgb(134,142,150)] mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-[rgb(29,29,31)] mb-2">No players yet</h3>
-              <p className="text-[rgb(134,142,150)] mb-6">Start building your roster by adding players</p>
-              {organization && (
-                <button
-                  onClick={() => setShowAddPlayerModal(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all inline-flex items-center space-x-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add First Player</span>
-                </button>
+              {team.season && (
+                <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
+                  <div className="flex items-center space-x-2 text-[rgb(134,142,150)] mb-2">
+                    <Calendar className="w-5 h-5" />
+                    <span className="text-sm font-medium">Current Season</span>
+                  </div>
+                  <p className="text-3xl font-bold text-[rgb(29,29,31)]">{team.season}</p>
+                </div>
               )}
             </div>
-          ) : (
-            <div className="space-y-4">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      {member.players.player_profiles?.photo_url ? (
-                        <img
-                          src={member.players.player_profiles.photo_url}
-                          alt={member.players.profiles.full_name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
-                          {member.players.profiles.full_name.charAt(0)}
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="text-[rgb(29,29,31)] font-semibold">
-                          {member.players.profiles.full_name}
-                        </h3>
-                        <div className="flex items-center space-x-3 text-sm text-[rgb(134,142,150)]">
-                          {member.players.primary_position && (
-                            <span>{member.players.primary_position}</span>
-                          )}
-                          {member.jersey_number && (
-                            <>
-                              <span>•</span>
-                              <span>#{member.jersey_number}</span>
-                            </>
-                          )}
-                          {member.players.age && (
-                            <>
-                              <span>•</span>
-                              <span>{member.players.age} years old</span>
-                            </>
+          )}
+
+          {activeTab === 'edit' && (
+            <TeamEditForm team={team} onUpdate={loadTeamDetails} />
+          )}
+
+          {activeTab === 'roster' && (
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-[rgb(29,29,31)]">Manage Roster</h2>
+                {organization && (
+                  <button
+                    onClick={() => setShowAddPlayerModal(true)}
+                    className="px-5 py-2 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Player</span>
+                  </button>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-[rgb(0,113,227)]" />
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-[rgb(134,142,150)] mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-[rgb(29,29,31)] mb-2">No players yet</h3>
+                  <p className="text-[rgb(134,142,150)] mb-6">Start building your roster by adding players</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {members.map((member) => {
+                    // Determine display values based on guest vs registered player
+                    const isGuest = member.is_guest;
+                    const photoUrl = isGuest
+                      ? member.guest_photo_url
+                      : member.players?.player_profiles?.photo_url;
+                    const fullName = isGuest
+                      ? `${member.guest_first_name} ${member.guest_last_name || ''}`.trim()
+                      : member.players?.profiles?.full_name || 'Unknown Player';
+                    const position = member.position || member.players?.primary_position;
+                    const age = !isGuest ? member.players?.age : null;
+
+                    return (
+                      <div
+                        key={member.id}
+                        className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 hover:border-[rgb(0,113,227)]/30 hover:shadow-sm transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl}
+                                alt={fullName}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
+                                {fullName.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-[rgb(29,29,31)] font-semibold">
+                                  {fullName}
+                                </h3>
+                                {isGuest && (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                    Guest
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-3 text-sm text-[rgb(134,142,150)]">
+                                {position && (
+                                  <span>{position}</span>
+                                )}
+                                {member.jersey_number && (
+                                  <>
+                                    <span>•</span>
+                                    <span>#{member.jersey_number}</span>
+                                  </>
+                                )}
+                                {age && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{age} years old</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {organization && (
+                            <button
+                              onClick={() => handleRemovePlayer(member.id)}
+                              className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
                           )}
                         </div>
                       </div>
-                    </div>
-                    {organization && (
-                      <button
-                        onClick={() => handleRemovePlayer(member.id)}
-                        className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
+          )}
+
+          {activeTab === 'achievements' && (
+            <TeamAchievementsManager teamId={team.id} />
+          )}
+
+          {activeTab === 'media' && (
+            <TeamMediaManager teamId={team.id} />
           )}
         </div>
       </div>
@@ -462,10 +598,39 @@ export default function TeamDetails() {
                   setSearchTerm('');
                   setSearchResults([]);
                   setError('');
+                  setActivePlayerTab('search');
                 }}
                 className="text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors"
               >
                 <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-6 pt-4 flex items-center space-x-4 border-b border-slate-200">
+              <button
+                onClick={() => setActivePlayerTab('search')}
+                className={`pb-4 px-2 text-sm font-medium transition-colors relative ${activePlayerTab === 'search'
+                  ? 'text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                  }`}
+              >
+                Search Existing Players
+                {activePlayerTab === 'search' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setActivePlayerTab('guest')}
+                className={`pb-4 px-2 text-sm font-medium transition-colors relative ${activePlayerTab === 'guest'
+                  ? 'text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                  }`}
+              >
+                Add Guest Player
+                {activePlayerTab === 'guest' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
+                )}
               </button>
             </div>
 
@@ -477,92 +642,109 @@ export default function TeamDetails() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                  Search for players
-                </label>
-                <div className="flex space-x-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearchPlayers()}
-                      placeholder="Search by name or email..."
-                      className="w-full pl-10 pr-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSearchPlayers}
-                    disabled={searching || !searchTerm.trim()}
-                    className="px-6 py-3 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {searching ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      'Search'
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {searchResults.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-[rgb(29,29,31)] font-semibold">Search Results</h3>
-                  {searchResults.map((player: any) => (
-                    <div
-                      key={player.id}
-                      className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:border-[rgb(0,113,227)]/30 transition-all"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {player.profiles?.avatar_url ? (
-                          <img
-                            src={player.profiles.avatar_url}
-                            alt={player.profiles?.full_name || 'Player'}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
-                            {player.profiles?.full_name?.charAt(0) || 'P'}
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-[rgb(29,29,31)] font-semibold">
-                            {player.profiles?.full_name || 'Unknown Player'}
-                          </p>
-                          <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
-                            <Mail className="w-4 h-4" />
-                            <span>{player.profiles?.email}</span>
-                          </div>
-                          {player.location && (
-                            <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
-                              <MapPin className="w-4 h-4" />
-                              <span>{player.location}</span>
-                            </div>
-                          )}
-                        </div>
+              {activePlayerTab === 'search' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
+                      Search for players
+                    </label>
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSearchPlayers()}
+                          placeholder="Search by name or email..."
+                          className="w-full pl-10 pr-4 py-3 bg-[rgb(247,247,249)] border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
+                        />
                       </div>
                       <button
-                        onClick={() => handleAddPlayer(player.id)}
-                        disabled={adding === player.id}
-                        className="px-4 py-2 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                        onClick={handleSearchPlayers}
+                        disabled={searching || !searchTerm.trim()}
+                        className="px-6 py-3 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {adding === player.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Adding...</span>
-                          </>
+                        {searching ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            <span>Add</span>
-                          </>
+                          'Search'
                         )}
                       </button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {searchResults.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-[rgb(29,29,31)] font-semibold">Search Results</h3>
+                      {searchResults.map((player: any) => (
+                        <div
+                          key={player.id}
+                          className="bg-[rgb(247,247,249)] border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:border-[rgb(0,113,227)]/30 transition-all"
+                        >
+                          <div className="flex items-center space-x-3">
+                            {player.profiles?.avatar_url ? (
+                              <img
+                                src={player.profiles.avatar_url}
+                                alt={player.profiles?.full_name || 'Player'}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold">
+                                {player.profiles?.full_name?.charAt(0) || 'P'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[rgb(29,29,31)] font-semibold">
+                                {player.profiles?.full_name || 'Unknown Player'}
+                              </p>
+                              <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
+                                <Mail className="w-4 h-4" />
+                                <span>{player.profiles?.email}</span>
+                              </div>
+                              {player.location && (
+                                <div className="flex items-center space-x-2 text-sm text-[rgb(134,142,150)]">
+                                  <MapPin className="w-4 h-4" />
+                                  <span>{player.location}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleAddPlayer(player.id)}
+                            disabled={adding === player.id}
+                            className="px-4 py-2 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                          >
+                            {adding === player.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Adding...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-4 h-4" />
+                                <span>Add</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <GuestPlayerForm
+                  teamId={id!}
+                  onSuccess={() => {
+                    setShowAddPlayerModal(false);
+                    setActivePlayerTab('search');
+                    loadTeamMembers();
+                  }}
+                  onCancel={() => {
+                    setShowAddPlayerModal(false);
+                    setActivePlayerTab('search');
+                  }}
+                />
               )}
             </div>
           </div>

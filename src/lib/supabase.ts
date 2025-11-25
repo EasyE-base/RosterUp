@@ -38,6 +38,8 @@ export interface Organization {
   state: string | null;
   country: string;
   primary_sport: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
   subscription_tier: 'starter' | 'growth' | 'elite' | 'enterprise';
   subscription_status: 'active' | 'inactive' | 'cancelled' | 'expired';
   created_at: string;
@@ -112,9 +114,66 @@ export interface Team {
   prior_season_classification: string | null; // Previous season classification
   classification_eligibility: any; // JSON object storing ClassificationCriteria
   last_classification_review: string | null; // Date of last classification review
+  banner_url: string | null;
+  bio: string | null;
+  practice_schedule: string | null;
+  home_field: string | null;
+  wins: number;
+  losses: number;
+  founded_year: number | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface TeamAchievement {
+  id: string;
+  team_id: string;
+  title: string;
+  description: string | null;
+  date_achieved: string | null;
+  achievement_type: 'tournament_win' | 'league_title' | 'award' | 'other';
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface TeamFollower {
+  id: string;
+  team_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface TeamMedia {
+  id: string;
+  team_id: string;
+  media_type: 'photo' | 'video';
+  url: string;
+  thumbnail_url: string | null;
+  title: string | null;
+  description: string | null;
+  is_featured: boolean;
+  created_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  player_id: string | null;
+  position: string | null;
+  jersey_number: number | null;
+  status: 'active' | 'inactive' | 'pending';
+  joined_at: string;
+  created_at: string;
+  // Guest player fields (when player_id is null)
+  is_guest: boolean;
+  guest_first_name: string | null;
+  guest_last_name: string | null;
+  guest_email: string | null;
+  guest_photo_url: string | null;
+  guest_date_of_birth: string | null;
+  guest_notes: string | null;
+}
+
 
 export interface Tryout {
   id: string;
@@ -207,7 +266,24 @@ export interface TournamentParticipant {
   status: 'pending' | 'confirmed' | 'cancelled' | 'waitlist';
   confirmed_at: string | null;
   check_in_status: 'not_checked_in' | 'checked_in' | null;
+  placement: string | null; // e.g., "1st", "Finalist", "Semi-Finalist"
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TournamentApplication {
+  id: string;
+  tournament_id: string;
+  organization_id: string;
+  team_id: string | null;
+  status: 'pending' | 'accepted' | 'rejected' | 'waitlist' | 'withdrawn';
+  roster_size: number | null;
+  experience_level: string | null;
+  application_notes: string | null;
+  applied_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -252,6 +328,9 @@ export interface WebsitePage {
   is_home: boolean;
   is_published: boolean;
   order_index: number;
+  clone_html?: string | null;
+  clone_css?: string | null;
+  clone_js?: string | null;
   created_at: string;
   updated_at: string;
 }

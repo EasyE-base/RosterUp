@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 
 export interface SelectedElement {
   elementId: string;
-  elementType: 'text' | 'heading' | 'image' | 'button' | 'card' | 'container' | 'link';
+  elementType: 'text' | 'heading' | 'image' | 'button' | 'card' | 'container' | 'link' | 'section';
   sectionId: string;
   parentIds: string[];
   isEditing: boolean;

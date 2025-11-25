@@ -4,7 +4,6 @@
  */
 
 export interface FeatureFlags {
-  canvasMode: boolean;
   aiGeneration: boolean;
   analytics: boolean;
 }
@@ -14,9 +13,6 @@ export interface FeatureFlags {
  */
 export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
   switch (feature) {
-    case 'canvasMode':
-      return import.meta.env.VITE_FEATURE_CANVAS_MODE === 'true';
-
     case 'aiGeneration':
       // AI generation is enabled if AI provider is configured
       return !!(
@@ -41,7 +37,6 @@ export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
  */
 export function getAllFeatureFlags(): FeatureFlags {
   return {
-    canvasMode: isFeatureEnabled('canvasMode'),
     aiGeneration: isFeatureEnabled('aiGeneration'),
     analytics: isFeatureEnabled('analytics'),
   };
@@ -55,7 +50,6 @@ export function logFeatureFlags(): void {
 
   const flags = getAllFeatureFlags();
   console.log('🚩 Feature Flags:', {
-    'Canvas Mode': flags.canvasMode ? '✅ Enabled' : '❌ Disabled',
     'AI Generation': flags.aiGeneration ? '✅ Enabled' : '❌ Disabled',
     'Analytics': flags.analytics ? '✅ Enabled' : '❌ Disabled',
   });

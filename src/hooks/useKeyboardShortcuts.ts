@@ -12,20 +12,57 @@ export interface KeyboardShortcut {
 }
 
 interface UseKeyboardShortcutsOptions {
-  shortcuts: KeyboardShortcut[];
+  shortcuts?: KeyboardShortcut[];
   enabled?: boolean;
+  onSave?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
+  onCopy?: () => void;
+  onCut?: () => void;
+  onPaste?: () => void;
+  onEscape?: () => void;
+  onHelp?: () => void;
 }
 
 export function useKeyboardShortcuts({
-  shortcuts,
+  shortcuts = [],
   enabled = true,
+  onSave,
+  onUndo,
+  onRedo,
+  onDelete,
+  onDuplicate,
+  onCopy,
+  onCut,
+  onPaste,
+  onEscape,
+  onHelp,
 }: UseKeyboardShortcutsOptions) {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
+      // Combine provided shortcuts with named handlers
+      const allShortcuts: KeyboardShortcut[] = [...shortcuts];
+
+      if (onSave) allShortcuts.push({ ...editorShortcuts.save, handler: onSave });
+      if (onUndo) allShortcuts.push({ ...editorShortcuts.undo, handler: onUndo });
+      if (onRedo) allShortcuts.push({ ...editorShortcuts.redo, handler: onRedo });
+      if (onDelete) {
+        allShortcuts.push({ ...editorShortcuts.delete, handler: onDelete });
+        allShortcuts.push({ ...editorShortcuts.backspace, handler: onDelete });
+      }
+      if (onDuplicate) allShortcuts.push({ ...editorShortcuts.duplicate, handler: onDuplicate });
+      if (onCopy) allShortcuts.push({ ...editorShortcuts.copy, handler: onCopy });
+      if (onCut) allShortcuts.push({ ...editorShortcuts.cut, handler: onCut });
+      if (onPaste) allShortcuts.push({ ...editorShortcuts.paste, handler: onPaste });
+      if (onEscape) allShortcuts.push({ ...editorShortcuts.escape, handler: onEscape });
+      if (onHelp) allShortcuts.push({ key: '/', shift: true, description: 'Show shortcuts', handler: onHelp });
+
       // Guard against undefined or null shortcuts
-      if (!shortcuts || !Array.isArray(shortcuts) || shortcuts.length === 0) {
+      if (allShortcuts.length === 0) {
         return;
       }
 
@@ -46,35 +83,29 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      for (const shortcut of shortcuts) {
+      for (const shortcut of allShortcuts) {
         const keyMatches =
           event.key.toLowerCase() === shortcut.key.toLowerCase();
-        const ctrlMatches = shortcut.ctrl ? event.ctrlKey || event.metaKey : true;
+
+        // Check modifiers
+        const ctrlMatches = shortcut.ctrl ? (event.ctrlKey || event.metaKey) : (!event.ctrlKey && !event.metaKey);
         const shiftMatches = shortcut.shift ? event.shiftKey : !event.shiftKey;
         const altMatches = shortcut.alt ? event.altKey : !event.altKey;
-        const metaMatches = shortcut.meta ? event.metaKey : true;
 
-        // For cross-platform compatibility, Cmd/Ctrl key handling
-        const modifierMatches =
-          (shortcut.ctrl && (event.ctrlKey || event.metaKey)) ||
-          (!shortcut.ctrl && !event.ctrlKey && !event.metaKey);
+        // Special case for Delete/Backspace which don't need modifiers usually
+        const isSimpleKey = !shortcut.ctrl && !shortcut.shift && !shortcut.alt && !shortcut.meta;
+        const simpleMatch = isSimpleKey && keyMatches;
 
-        if (keyMatches && modifierMatches) {
-          // Check all modifiers match
-          const shiftOk = shortcut.shift === undefined || shortcut.shift === event.shiftKey;
-          const altOk = shortcut.alt === undefined || shortcut.alt === event.altKey;
-
-          if (shiftOk && altOk) {
-            if (shortcut.preventDefault !== false) {
-              event.preventDefault();
-            }
-            shortcut.handler();
-            break;
+        if ((keyMatches && ctrlMatches && shiftMatches && altMatches) || simpleMatch) {
+          if (shortcut.preventDefault !== false) {
+            event.preventDefault();
           }
+          shortcut.handler();
+          break;
         }
       }
     },
-    [shortcuts, enabled]
+    [shortcuts, enabled, onSave, onUndo, onRedo, onDelete, onDuplicate, onCopy, onCut, onPaste, onEscape, onHelp]
   );
 
   useEffect(() => {

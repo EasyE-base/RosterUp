@@ -7,7 +7,7 @@ interface Ripple {
   id: number;
 }
 
-interface RippleEffectProps {
+interface RippleEffectProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -21,6 +21,7 @@ export default function RippleEffect({
   disabled = false,
   onClick,
   color = 'rgba(255, 255, 255, 0.6)',
+  ...props
 }: RippleEffectProps) {
   const [ripples, setRipples] = useState<Ripple[]>([]);
 
@@ -53,6 +54,7 @@ export default function RippleEffect({
       className={`relative overflow-hidden ${className}`}
       onClick={handleClick}
       disabled={disabled}
+      {...props}
     >
       {children}
 

@@ -9,15 +9,19 @@ import {
   Check,
   Loader2,
   LogOut,
+  Palette,
+  Upload,
 } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import WebsiteUrlSetting from '../components/settings/WebsiteUrlSetting';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'account' | 'notifications' | 'security'>(
+  const [activeTab, setActiveTab] = useState<'account' | 'notifications' | 'security' | 'branding'>(
     'account'
   );
   const [loading, setLoading] = useState(false);
@@ -36,6 +40,49 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [branding, setBranding] = useState({
+    primary_color: '#0071e3',
+    secondary_color: '#1d1d1f',
+    logo_url: '',
+  });
+
+  // Load branding settings
+  useState(() => {
+    if (organization) {
+      setBranding({
+        primary_color: organization.primary_color || '#0071e3',
+        secondary_color: organization.secondary_color || '#1d1d1f',
+        logo_url: organization.logo_url || '',
+      });
+    }
+  });
+
+  const handleSaveBranding = async () => {
+    if (!organization) return;
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          primary_color: branding.primary_color,
+          secondary_color: branding.secondary_color,
+          logo_url: branding.logo_url,
+        })
+        .eq('id', organization.id);
+
+      if (error) throw error;
+      setSuccess('Branding settings updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to update branding settings');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveNotifications = async () => {
     setLoading(true);
@@ -160,11 +207,10 @@ export default function Settings() {
             <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 shadow-sm">
               <button
                 onClick={() => setActiveTab('account')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'account'
-                    ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
-                    : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'account'
+                  ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
+                  }`}
               >
                 <User className="w-5 h-5" />
                 <span className="font-medium">Account</span>
@@ -172,11 +218,10 @@ export default function Settings() {
 
               <button
                 onClick={() => setActiveTab('notifications')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'notifications'
-                    ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
-                    : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'notifications'
+                  ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
+                  }`}
               >
                 <Bell className="w-5 h-5" />
                 <span className="font-medium">Notifications</span>
@@ -184,14 +229,24 @@ export default function Settings() {
 
               <button
                 onClick={() => setActiveTab('security')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'security'
-                    ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
-                    : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'security'
+                  ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
+                  }`}
               >
                 <Lock className="w-5 h-5" />
                 <span className="font-medium">Security</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('branding')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'branding'
+                  ? 'bg-[rgb(0,113,227)]/10 border border-[rgb(0,113,227)]/20 text-[rgb(0,113,227)]'
+                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] hover:bg-[rgb(247,247,249)]'
+                  }`}
+              >
+                <Palette className="w-5 h-5" />
+                <span className="font-medium">Branding</span>
               </button>
             </div>
 
@@ -242,6 +297,13 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+
+                {/* Website URL - Only for Organizations */}
+                {organization && (
+                  <div className="pt-6">
+                    <WebsiteUrlSetting />
+                  </div>
+                )}
 
                 <div className="border-t border-slate-200 pt-6">
                   <h3 className="text-lg font-bold text-[rgb(29,29,31)] mb-2">Danger Zone</h3>
@@ -428,9 +490,135 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
+
+            )}
+
+            {activeTab === 'branding' && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-4">Branding & Appearance</h2>
+                <p className="text-[rgb(134,142,150)] mb-6">
+                  Customize how your organization appears to players and parents
+                </p>
+
+                <div className="space-y-8">
+                  {/* Logo Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-4">
+                      Organization Logo
+                    </label>
+                    <div className="flex items-center gap-6">
+                      <div className="relative group">
+                        <div className="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
+                          {branding.logo_url ? (
+                            <img src={branding.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-8 h-8 text-slate-300" />
+                          )}
+                        </div>
+                        <button className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                          <Upload className="w-6 h-6 text-white" />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={branding.logo_url}
+                          onChange={(e) => setBranding({ ...branding, logo_url: e.target.value })}
+                          placeholder="Enter logo URL (upload coming soon)"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
+                        />
+                        <p className="text-sm text-[rgb(134,142,150)] mt-2">
+                          Recommended size: 512x512px. Supports PNG, JPG.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Colors */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
+                        Primary Color
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={branding.primary_color}
+                          onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                          className="w-12 h-12 rounded-lg border border-slate-200 cursor-pointer p-1 bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={branding.primary_color}
+                          onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                          className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] font-mono uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
+                        Secondary Color
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={branding.secondary_color}
+                          onChange={(e) => setBranding({ ...branding, secondary_color: e.target.value })}
+                          className="w-12 h-12 rounded-lg border border-slate-200 cursor-pointer p-1 bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={branding.secondary_color}
+                          onChange={(e) => setBranding({ ...branding, secondary_color: e.target.value })}
+                          className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] font-mono uppercase"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="p-6 bg-slate-50 rounded-xl border border-slate-200">
+                    <h3 className="text-sm font-medium text-[rgb(29,29,31)] mb-4">Preview</h3>
+                    <div className="flex items-center gap-4">
+                      <button
+                        style={{ backgroundColor: branding.primary_color }}
+                        className="px-6 py-2.5 rounded-full text-white font-medium shadow-sm"
+                      >
+                        Primary Button
+                      </button>
+                      <button
+                        style={{ color: branding.primary_color, borderColor: branding.primary_color }}
+                        className="px-6 py-2.5 rounded-full bg-white border font-medium"
+                      >
+                        Secondary Button
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveBranding}
+                    disabled={loading}
+                    className="px-6 py-3 bg-[rgb(0,113,227)] text-white font-medium rounded-lg hover:bg-blue-600 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

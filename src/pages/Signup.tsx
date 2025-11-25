@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Building2, Users, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Building2, Users, User, Mail, Lock, Eye, EyeOff, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { SignInCard } from '@/components/ui/sign-in-card';
@@ -22,7 +22,7 @@ function Input({ className, ...props }: React.ComponentProps<"input">) {
 }
 
 export default function Signup() {
-  const [userType, setUserType] = useState<'organization' | 'player'>('organization');
+  const [userType, setUserType] = useState<'organization' | 'player' | 'trainer'>('organization');
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [playerAge, setPlayerAge] = useState('');
@@ -92,7 +92,7 @@ export default function Signup() {
 
         if (userType === 'organization') {
           navigate('/onboarding/organization');
-        } else {
+        } else if (userType === 'player') {
           // Create player record with age and parent email
           const { error: playerError } = await supabase.from('players').insert({
             user_id: authData.user.id,
@@ -112,6 +112,15 @@ export default function Signup() {
           } else {
             navigate('/onboarding/player');
           }
+        } else if (userType === 'trainer') {
+          // Create trainer record
+          const { error: trainerError } = await supabase.from('trainers').insert({
+            user_id: authData.user.id,
+          });
+
+          if (trainerError) throw trainerError;
+
+          navigate('/onboarding/trainer');
         }
       }
     } catch (err) {
@@ -136,7 +145,7 @@ export default function Signup() {
           <label className="block text-sm font-medium text-[rgb(29,29,31)]">
             Account Type
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <motion.button
               type="button"
               onClick={() => setUserType('organization')}
@@ -185,6 +194,31 @@ export default function Signup() {
                 Player
               </p>
               <p className="text-xs text-[rgb(134,142,150)] mt-0.5">Find teams</p>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              onClick={() => setUserType('trainer')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={cn(
+                "p-4 rounded-lg border-2 transition-all duration-200",
+                userType === 'trainer'
+                  ? 'bg-[rgb(0,113,227)]/10 border-[rgb(0,113,227)] shadow-sm'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              )}
+            >
+              <Award className={cn(
+                "w-6 h-6 mx-auto mb-1.5 transition-colors",
+                userType === 'trainer' ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+              )} />
+              <p className={cn(
+                "font-semibold text-sm",
+                userType === 'trainer' ? 'text-[rgb(0,113,227)]' : 'text-[rgb(29,29,31)]'
+              )}>
+                Trainer
+              </p>
+              <p className="text-xs text-[rgb(134,142,150)] mt-0.5">Offer training</p>
             </motion.button>
           </div>
         </div>

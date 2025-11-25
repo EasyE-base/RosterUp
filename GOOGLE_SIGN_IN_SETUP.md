@@ -63,3 +63,19 @@ To get "Sign in with Google" working 100%, you need to ensure your Supabase proj
 
 > [!IMPORTANT]
 > If you are still experiencing issues, check the browser console for any error messages from Supabase or Google.
+
+## 6. Customize "Choose an account to continue to..." Text
+
+If your Google Sign-In screen says "Choose an account to continue to **hnaqmskjbsrltdcvinai.supabase.co**" and you want it to say **RosterUp**:
+
+1.  Go to [Google Cloud Console](https://console.cloud.google.com/).
+2.  Navigate to **APIs & Services > OAuth consent screen**.
+3.  Click **Edit App**.
+4.  **App name**: Change this to `RosterUp`.
+5.  **User support email**: Select your email.
+6.  **App logo**: (Optional) Upload your logo to make it look professional.
+7.  **Application home page**: Enter `https://roster-up.vercel.app`.
+8.  **Authorized domains**: Add `roster-up.vercel.app`.
+9.  Click **Save and Continue**.
+
+**Note:** The "continue to..." text usually reflects the **App Name**. However, Google might still show the domain URL in small text or if the app is unverified. To completely remove the Supabase URL from the address bar during the redirect loop, you would need to set up a **Custom Domain** in Supabase (e.g., `auth.rosterup.com`), which is a paid add-on. But changing the **App Name** in Google Cloud is free and fixes the main text.

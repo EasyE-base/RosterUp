@@ -24,4 +24,27 @@ export default defineConfig({
       overlay: true,
     },
   },
+  build: {
+    // Code splitting configuration for better performance
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunk for React and React Router
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Supabase chunk
+          'supabase': ['@supabase/supabase-js'],
+          // Framer Motion chunk
+          'framer': ['framer-motion'],
+          // Icons chunk
+          'icons': ['lucide-react'],
+          // Heavy libraries chunk
+          'heavy': ['browser-image-compression', 'heic2any'],
+        },
+      },
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Use esbuild for minification (faster and more reliable)
+    minify: 'esbuild',
+  },
 });

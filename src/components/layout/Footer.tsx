@@ -71,15 +71,13 @@ export default function Footer() {
                 Company
               </h4>
               <div className="flex gap-2 flex-wrap md:flex-col text-sm text-[rgb(29,29,31)] items-start">
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
+                <Link className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" to="/about">
                   About Us
-                </a>
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
+                </Link>
+                <Link className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" to="/blog">
                   Blog
-                </a>
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
-                  Careers
-                </a>
+                </Link>
+
                 <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
                   Contact
                 </a>
@@ -92,15 +90,15 @@ export default function Footer() {
                 Legal
               </h4>
               <div className="flex flex-col gap-2 text-sm text-[rgb(29,29,31)] items-start">
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
+                <Link className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" to="/privacy">
                   Privacy Policy
-                </a>
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
+                </Link>
+                <Link className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" to="/terms">
                   Terms of Service
-                </a>
-                <a className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" href="#">
+                </Link>
+                <Link className="text-[rgb(134,142,150)] hover:text-[rgb(0,113,227)] whitespace-nowrap font-medium transition-colors" to="/cookies">
                   Cookie Policy
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -114,12 +112,12 @@ export default function Footer() {
             ©{currentYear} RosterUp. All rights reserved.
           </p>
           <div className="flex flex-row gap-4">
-            <a className="hover:text-[rgb(0,113,227)] transition-colors" href="#">
+            <Link className="hover:text-[rgb(0,113,227)] transition-colors" to="/privacy">
               Privacy Policy
-            </a>
-            <a className="hover:text-[rgb(0,113,227)] transition-colors" href="#">
+            </Link>
+            <Link className="hover:text-[rgb(0,113,227)] transition-colors" to="/terms">
               Terms & Conditions
-            </a>
+            </Link>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function OnboardingCheck({ children }: { children: React.ReactNode }) {
-  const { user, profile, organization, player, loading } = useAuth();
+  const { user, profile, organization, player, trainer, loading } = useAuth();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -30,6 +30,10 @@ export default function OnboardingCheck({ children }: { children: React.ReactNod
 
   if (profile.user_type === 'player' && !player) {
     return <Navigate to="/onboarding/player" replace />;
+  }
+
+  if (profile.user_type === 'trainer' && !trainer) {
+    return <Navigate to="/onboarding/trainer" replace />;
   }
 
   return <>{children}</>;

@@ -1,9 +1,9 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { appleShadows, appleAnimations } from '@/lib/appleDesignTokens';
 
-export interface AppleCardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface AppleCardProps extends Omit<HTMLMotionProps<"div">, "ref"> {
   /**
    * Card variant
    * @default 'default'
@@ -36,6 +36,11 @@ export interface AppleCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * Custom border color
    */
   borderColor?: string;
+
+  /**
+   * Animation delay in seconds
+   */
+  delay?: number;
 }
 
 export const AppleCard = React.forwardRef<HTMLDivElement, AppleCardProps>(
@@ -46,6 +51,7 @@ export const AppleCard = React.forwardRef<HTMLDivElement, AppleCardProps>(
       hover = true,
       onClick,
       animateOnView = false,
+      delay = 0,
       borderColor,
       className,
       children,
@@ -81,11 +87,11 @@ export const AppleCard = React.forwardRef<HTMLDivElement, AppleCardProps>(
     // Animation props
     const animationProps = animateOnView
       ? {
-          initial: { opacity: 0, y: 12 },
-          whileInView: { opacity: 1, y: 0 },
-          viewport: { once: true },
-          transition: { duration: 0.6, ease: appleAnimations.easing.easeOutExpo },
-        }
+        initial: { opacity: 0, y: 12 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true },
+        transition: { duration: 0.6, ease: appleAnimations.easing.easeOutExpo, delay },
+      }
       : {};
 
     const hoverProps = hover && onClick ? appleAnimations.hoverLift : {};

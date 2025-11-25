@@ -1,15 +1,13 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Command } from 'lucide-react';
 
 interface UserTypeCardProps {
     title: string;
     description: string;
     image: string;
-    icon?: LucideIcon;
     onClick: () => void;
-    color: string; // e.g., "bg-yellow-400"
     roleLabel?: string;
+    color?: string; // Kept for compatibility but unused in new design
 }
 
 export function UserTypeCard({
@@ -17,58 +15,62 @@ export function UserTypeCard({
     description,
     image,
     onClick,
-    color,
     roleLabel = "Role",
 }: UserTypeCardProps) {
     return (
         <motion.div
-            whileHover={{ y: -8 }}
-            className="group relative flex flex-col items-center bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 h-full transition-all duration-300 hover:shadow-xl"
+            whileHover={{ y: -8, scale: 1.02 }}
+            transition={{ duration: 0.4, ease: [0.2, 0.65, 0.3, 0.9] }}
+            className="group relative w-full aspect-[3/5] rounded-[2.5rem] overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl transition-shadow duration-500 bg-white"
+            onClick={onClick}
         >
-            {/* Top Label */}
-            <div className="w-full flex justify-start mb-6">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {roleLabel}
-                </span>
+            {/* Full Background Image */}
+            <div className="absolute inset-0">
+                <img
+                    src={image}
+                    alt={title}
+                    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 grayscale group-hover:grayscale-0"
+                    loading="lazy"
+                />
+                {/* Subtle gradient overlay to ensure text contrast if needed, though glass pane handles most */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5" />
             </div>
 
-            {/* Circular Image Container */}
-            <div className="relative mb-8 group-hover:scale-105 transition-transform duration-500">
-                {/* Colored Background Circle */}
-                <div className={cn(
-                    "absolute inset-0 rounded-full opacity-20 scale-110 transition-transform duration-500 group-hover:scale-125",
-                    color
-                )} />
-
-                {/* Image Circle */}
-                <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                    <img
-                        src={image}
-                        alt={title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                    />
+            {/* Glassmorphic Bottom Panel */}
+            <div className="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 border border-white/60 shadow-lg transition-colors duration-300 group-hover:bg-white/90">
+                {/* Top Row: Icon + Label + Icon */}
+                <div className="flex justify-between items-center mb-3 opacity-60">
+                    <div className="p-1.5 rounded-full border border-black/10">
+                        <Plus className="w-3 h-3 text-black" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/70">
+                        {roleLabel}
+                    </span>
+                    <div className="p-1.5 rounded-full border border-black/10">
+                        <Command className="w-3 h-3 text-black" />
+                    </div>
                 </div>
-            </div>
 
-            {/* Content */}
-            <div className="flex flex-col items-center text-center flex-grow">
-                <h3 className="text-3xl font-bold text-[rgb(29,29,31)] mb-4">
+                {/* Title */}
+                <h3 className="text-3xl font-semibold text-black tracking-tight text-center mb-2">
                     {title}
                 </h3>
-                <p className="text-[rgb(134,142,150)] text-sm leading-relaxed mb-8 max-w-[240px]">
+
+                {/* Description (Hidden by default, shown on hover? Or just small?) 
+                    User image didn't show description, but for UX we might want it. 
+                    Let's keep it very subtle or remove if strictly following image.
+                    I'll add it as a very small subtle text for context.
+                */}
+                <p className="text-center text-xs text-slate-600 font-medium leading-relaxed line-clamp-2 px-2">
                     {description}
                 </p>
-            </div>
 
-            {/* Button */}
-            <button
-                onClick={onClick}
-                className="mt-auto w-full max-w-[160px] py-3 px-6 rounded-full bg-[rgb(29,29,31)] text-white font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 group-hover:bg-black group-hover:scale-105 shadow-md hover:shadow-lg"
-            >
-                Select
-                <ArrowRight className="w-4 h-4" />
-            </button>
+                {/* Hover Indicator */}
+                <div className="flex justify-center mt-4 gap-1.5">
+                    <div className="w-8 h-1 bg-black/20 rounded-full group-hover:bg-black/80 transition-colors duration-300" />
+                    <div className="w-1.5 h-1 bg-black/10 rounded-full" />
+                </div>
+            </div>
         </motion.div>
     );
 }

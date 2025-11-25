@@ -12,13 +12,17 @@
  */
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
-import { Theme, getTheme, generateThemeCSSVariables } from '../lib/theme-system';
-import { TypographyPreset, getTypographyPreset } from '../lib/typography-presets';
+import { Theme, getTheme, generateThemeCSSVariables, TypographyPreset } from '../lib/theme-system';
+import { getTypographyPreset } from '../lib/typography-presets';
+import { SavedTheme, getThemePresets } from '../lib/theme-generator';
 
 interface ThemeContextValue {
   theme: Theme;
   typography: TypographyPreset;
   setThemeId: (themeId: string) => void;
+  setCustomTheme: (theme: Theme) => void;
+  savedThemes: SavedTheme[];
+  revertToTheme: (themeId: string) => void;
   isMobile: boolean;
   prefersReducedMotion: boolean;
   shouldDisableAnimations: boolean;
@@ -46,15 +50,42 @@ export function ThemeProvider({
   websiteId,
 }: ThemeProviderProps) {
   const [themeId, setThemeId] = useState(initialThemeId);
+  const [customTheme, setCustomThemeState] = useState<Theme | null>(null);
+  const [savedThemes, setSavedThemes] = useState<SavedTheme[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [prefersReducedMotion, setprefersReducedMotion] = useState(false);
 
   // Get theme and typography objects
-  const theme = useMemo(() => getTheme(themeId), [themeId]);
+  // Use custom theme if set, otherwise use theme from registry
+  const theme = useMemo(() => customTheme || getTheme(themeId), [themeId, customTheme]);
   const typography = useMemo(
     () => getTypographyPreset(theme.typography),
     [theme.typography]
   );
+
+  // Load saved themes from localStorage on mount
+  useEffect(() => {
+    setSavedThemes(getThemePresets());
+  }, []);
+
+  // Custom theme setter
+  const setCustomTheme = (newTheme: Theme) => {
+    setCustomThemeState(newTheme);
+    setThemeId(newTheme.id); // Update themeId for consistency
+  };
+
+  // Revert to a saved theme
+  const revertToTheme = (targetThemeId: string) => {
+    // Check if it's a saved custom theme
+    const savedTheme = savedThemes.find(t => t.theme.id === targetThemeId);
+    if (savedTheme) {
+      setCustomTheme(savedTheme.theme);
+    } else {
+      // It's a preset theme
+      setCustomThemeState(null);
+      setThemeId(targetThemeId);
+    }
+  };
 
   // Detect mobile devices for performance optimization
   useEffect(() => {
@@ -85,6 +116,9 @@ export function ThemeProvider({
     const root = document.documentElement;
     const cssVars = generateThemeCSSVariables(theme);
 
+    // Add transition for smooth color changes
+    root.style.transition = 'all 1000ms cubic-bezier(0.4, 0, 0.2, 1)';
+
     Object.entries(cssVars).forEach(([key, value]) => {
       root.style.setProperty(key, value);
     });
@@ -112,6 +146,9 @@ export function ThemeProvider({
     theme,
     typography,
     setThemeId,
+    setCustomTheme,
+    savedThemes,
+    revertToTheme,
     isMobile,
     prefersReducedMotion,
     shouldDisableAnimations,

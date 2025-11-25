@@ -11,6 +11,7 @@ interface EditorState {
   viewMode: 'desktop' | 'tablet' | 'mobile';
   showGrid: boolean;
   zoom: number;
+  dragModeEnabled: boolean;
 }
 
 interface EditorContextType {
@@ -40,6 +41,7 @@ interface EditorContextType {
   setViewMode: (mode: 'desktop' | 'tablet' | 'mobile') => void;
   toggleGrid: () => void;
   setZoom: (zoom: number) => void;
+  toggleDragMode: () => void;
   undoStack: WebsiteContentBlock[][];
   redoStack: WebsiteContentBlock[][];
   undo: () => void;
@@ -166,6 +168,7 @@ export function WebsiteEditorProvider({ children }: { children: ReactNode }) {
     viewMode: 'desktop',
     showGrid: false,
     zoom: 100,
+    dragModeEnabled: false,
   });
 
   const [blocks, setBlocksState] = useState<WebsiteContentBlock[]>([]);
@@ -419,6 +422,10 @@ export function WebsiteEditorProvider({ children }: { children: ReactNode }) {
     setEditorState((prev) => ({ ...prev, zoom }));
   }, []);
 
+  const toggleDragMode = useCallback(() => {
+    setEditorState((prev) => ({ ...prev, dragModeEnabled: !prev.dragModeEnabled }));
+  }, []);
+
   const undo = useCallback(() => {
     if (undoStack.length === 0) return;
 
@@ -516,6 +523,7 @@ export function WebsiteEditorProvider({ children }: { children: ReactNode }) {
     setViewMode,
     toggleGrid,
     setZoom,
+    toggleDragMode,
     undoStack,
     redoStack,
     undo,
