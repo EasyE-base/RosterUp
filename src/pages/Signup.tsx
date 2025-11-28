@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Users, User, Mail, Lock, Eye, EyeOff, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { SignInCard } from '@/components/ui/sign-in-card';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 function Input({ className, ...props }: React.ComponentProps<"input">) {
@@ -24,6 +24,8 @@ function Input({ className, ...props }: React.ComponentProps<"input">) {
 export default function Signup() {
   const [userType, setUserType] = useState<'organization' | 'player' | 'trainer'>('organization');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [playerAge, setPlayerAge] = useState('');
   const [parentEmail, setParentEmail] = useState('');
@@ -35,8 +37,10 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [showParentVerificationNotice, setShowParentVerificationNotice] = useState(false);
   const navigate = useNavigate();
+  const { signUp: authSignUp } = useAuth();
 
-  const handleSubmit = async (data: { email: string; password: string }) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
 
     // Validation
@@ -45,12 +49,22 @@ export default function Signup() {
       return;
     }
 
-    if (data.password !== confirmPassword) {
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+
+    if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (data.password.length < 6) {
+    if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
@@ -74,43 +88,57 @@ export default function Signup() {
 
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
+        email: email,
+        password: password,
       });
 
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
+        console.log('Creating profile for user:', authData.user.id);
+        const { error: profileError } = await supabase.from('profiles').upsert({
           id: authData.user.id,
-          email: data.email,
+          email: email,
           full_name: name,
           user_type: userType,
+        }, {
+          onConflict: 'id'
         });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
+        console.log('Profile created successfully');
 
         if (userType === 'organization') {
           navigate('/onboarding/organization');
         } else if (userType === 'player') {
-          // Create player record with age and parent email
-          const { error: playerError } = await supabase.from('players').insert({
+          // Create player_profile record (using the correct table)
+          const { error: playerError } = await supabase.from('player_profiles').upsert({
             user_id: authData.user.id,
-            age: parseInt(playerAge),
-            parent_email: parseInt(playerAge) < 18 ? parentEmail : null,
-            country: 'United States',
-            rating: 0,
-            profile_visibility: 'public',
+            sport: 'Softball', // Default sport, can be changed in profile
+            parent_phone: parseInt(playerAge) < 18 ? parentEmail : null, // Store parent email in parent_phone field for now
+            recruiting_status: 'open',
+            is_visible_in_search: true,
+            is_active: true,
+          }, {
+            onConflict: 'user_id'
           });
 
-          if (playerError) throw playerError;
+          if (playerError) {
+            console.error('Player profile creation error:', playerError);
+            throw playerError;
+          }
+          console.log('Player profile created successfully');
 
           // Show parent verification notice for players under 18
           if (parseInt(playerAge) < 18) {
             setShowParentVerificationNotice(true);
             setLoading(false);
           } else {
-            navigate('/onboarding/player');
+            // Profile is already created, go to complete profile page
+            navigate('/player/profile/create');
           }
         } else if (userType === 'trainer') {
           // Create trainer record
@@ -132,15 +160,31 @@ export default function Signup() {
 
   return (
     <>
-      <SignInCard
-        type="signup"
-        onSubmit={handleSubmit}
-        isLoading={loading}
-        error={error}
-        showRememberMe={false}
-        showForgotPassword={false}
-      >
-        {/* User Type Selection */}
+      <div className="min-h-screen bg-[rgb(247,247,249)] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="w-full max-w-md"
+        >
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-8">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold" style={{ fontFamily: 'BaseballClub, sans-serif' }}>
+                RosterUp
+              </h1>
+              <p className="text-sm text-[rgb(134,142,150)] mt-2">Create your account</p>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* User Type Selection */}
         <div className="space-y-3 mb-4">
           <label className="block text-sm font-medium text-[rgb(29,29,31)]">
             Account Type
@@ -254,6 +298,75 @@ export default function Signup() {
                 required
                 className="w-full border-slate-200 text-[rgb(29,29,31)] placeholder:text-[rgb(134,142,150)] h-10 pl-10 pr-3"
               />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Email Input */}
+        <motion.div
+          className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
+          whileFocus={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <div className="mb-4">
+            <label htmlFor="email" className="block text-sm font-medium text-[rgb(29,29,31)] mb-1.5">
+              Email
+            </label>
+            <div className="relative flex items-center">
+              <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
+                focusedInput === "email" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+              }`} />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setFocusedInput("email")}
+                onBlur={() => setFocusedInput(null)}
+                placeholder="you@example.com"
+                required
+                className="w-full border-slate-200 text-[rgb(29,29,31)] placeholder:text-[rgb(134,142,150)] h-10 pl-10 pr-3"
+              />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Password Input */}
+        <motion.div
+          className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
+          whileFocus={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <div className="mb-4">
+            <label htmlFor="password" className="block text-sm font-medium text-[rgb(29,29,31)] mb-1.5">
+              Password
+            </label>
+            <div className="relative flex items-center">
+              <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
+                focusedInput === "password" ? 'text-[rgb(0,113,227)]' : 'text-[rgb(134,142,150)]'
+              }`} />
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setFocusedInput("password")}
+                onBlur={() => setFocusedInput(null)}
+                placeholder="Create a password"
+                required
+                className="w-full border-slate-200 text-[rgb(29,29,31)] placeholder:text-[rgb(134,142,150)] h-10 pl-10 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 cursor-pointer focus:outline-none"
+              >
+                {showPassword ? (
+                  <Eye className="w-4 h-4 text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)] transition-colors" />
+                )}
+              </button>
             </div>
           </div>
         </motion.div>
@@ -389,7 +502,29 @@ export default function Signup() {
             </Link>
           </label>
         </div>
-      </SignInCard>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[rgb(0,113,227)] hover:bg-blue-600 text-white font-semibold rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              >
+                {loading ? 'Creating account...' : 'Create Account'}
+              </button>
+
+              {/* Sign In Link */}
+              <div className="text-center mt-4">
+                <p className="text-sm text-[rgb(134,142,150)]">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-[rgb(0,113,227)] hover:text-blue-600 font-medium">
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+            </form>
+          </div>
+        </motion.div>
+      </div>
 
       {/* Parent Verification Notice Modal */}
       {showParentVerificationNotice && (

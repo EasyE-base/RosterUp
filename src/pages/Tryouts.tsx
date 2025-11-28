@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   XCircle,
   Hourglass,
+  Edit,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Tryout, Team } from '../lib/supabase';
@@ -106,6 +107,9 @@ export default function Tryouts() {
     requirements: '',
     description: '',
   });
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+  const [editingTryout, setEditingTryout] = useState<TryoutWithTeam | null>(null);
   const [error, setError] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -228,6 +232,59 @@ export default function Tryouts() {
     }
   };
 
+  const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFlyerFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFlyerPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeFlyerPreview = () => {
+    setFlyerFile(null);
+    setFlyerPreview(null);
+  };
+
+  const handleEditTryout = (tryout: TryoutWithTeam) => {
+    setEditingTryout(tryout);
+    setFormData({
+      team_id: tryout.team_id,
+      date: tryout.date,
+      start_time: tryout.start_time,
+      end_time: tryout.end_time || '',
+      location: tryout.location,
+      address: tryout.address || '',
+      max_participants: tryout.total_spots,
+      requirements: Array.isArray(tryout.requirements) ? tryout.requirements.join('\n') : '',
+      description: tryout.description || '',
+    });
+    setFlyerPreview(tryout.flyer_url);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingTryout(null);
+    setFormData({
+      team_id: '',
+      date: '',
+      start_time: '',
+      end_time: '',
+      location: '',
+      address: '',
+      max_participants: 20,
+      requirements: '',
+      description: '',
+    });
+    setFlyerFile(null);
+    setFlyerPreview(null);
+    setError('');
+  };
+
   const handleCreateTryout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -239,8 +296,32 @@ export default function Tryouts() {
       }
 
       const selectedTeam = teams.find(t => t.id === formData.team_id);
+      let flyerUrl: string | null = editingTryout?.flyer_url || null;
 
-      const { error: insertError } = await supabase.from('tryouts').insert({
+      // Upload new flyer if provided
+      if (flyerFile) {
+        const fileExt = flyerFile.name.split('.').pop();
+        const fileName = `${organization.id}-${Date.now()}.${fileExt}`;
+        const filePath = fileName; // Just the filename, not including bucket name
+
+        const { error: uploadError } = await supabase.storage
+          .from('tryout-flyers')
+          .upload(filePath, flyerFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('tryout-flyers')
+          .getPublicUrl(filePath);
+
+        flyerUrl = publicUrlData.publicUrl;
+      }
+
+      const tryoutData = {
         team_id: formData.team_id,
         organization_id: organization.id,
         title: formData.description || `${selectedTeam?.name} Tryout`,
@@ -253,27 +334,30 @@ export default function Tryouts() {
         address: formData.address,
         total_spots: formData.max_participants,
         spots_available: formData.max_participants,
-        requirements: formData.requirements ? JSON.parse(`["${formData.requirements}"]`) : [],
+        requirements: formData.requirements ? formData.requirements.split('\n').filter(r => r.trim()) : [],
+        flyer_url: flyerUrl,
         status: 'open',
-      });
+      };
 
-      if (insertError) throw insertError;
+      if (editingTryout) {
+        // Update existing tryout
+        const { error: updateError } = await supabase
+          .from('tryouts')
+          .update(tryoutData)
+          .eq('id', editingTryout.id);
 
-      setShowCreateModal(false);
-      setFormData({
-        team_id: '',
-        date: '',
-        start_time: '',
-        end_time: '',
-        location: '',
-        address: '',
-        max_participants: 20,
-        requirements: '',
-        description: '',
-      });
+        if (updateError) throw updateError;
+      } else {
+        // Create new tryout
+        const { error: insertError } = await supabase.from('tryouts').insert(tryoutData);
+
+        if (insertError) throw insertError;
+      }
+
+      handleCloseModal();
       loadTryouts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create tryout');
+      setError(err instanceof Error ? err.message : `Failed to ${editingTryout ? 'update' : 'create'} tryout`);
     } finally {
       setSubmitLoading(false);
     }
@@ -314,6 +398,42 @@ export default function Tryouts() {
         return 'danger' as const;
       default:
         return 'warning' as const;
+    }
+  };
+
+  const getSportFallbackVisual = (sport: string) => {
+    const sportLower = sport.toLowerCase();
+
+    if (sportLower.includes('softball')) {
+      return {
+        gradient: 'from-yellow-400 to-orange-500',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
+    } else if (sportLower.includes('baseball')) {
+      return {
+        gradient: 'from-red-500 to-blue-600',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
+    } else if (sportLower.includes('soccer') || sportLower.includes('football')) {
+      return {
+        gradient: 'from-green-500 to-emerald-600',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
+    } else if (sportLower.includes('basketball')) {
+      return {
+        gradient: 'from-orange-500 to-red-600',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
+    } else if (sportLower.includes('volleyball')) {
+      return {
+        gradient: 'from-blue-400 to-cyan-500',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
+    } else {
+      return {
+        gradient: 'from-blue-500 to-cyan-400',
+        icon: <Trophy className="w-24 h-24 text-white/40" />,
+      };
     }
   };
 
@@ -403,16 +523,16 @@ export default function Tryouts() {
                 {featuredTryouts[carouselIndex] && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <div className="flex items-center space-x-3 mb-4 flex-wrap gap-2">
-                        <h3 className="text-3xl font-bold text-[rgb(29,29,31)]">
+                      <div className="flex items-center space-x-3 mb-3 flex-wrap gap-2">
+                        <h3 className="text-2xl font-bold text-[rgb(29,29,31)]">
                           {featuredTryouts[carouselIndex].teams.name}
                         </h3>
                         <AppleBadge variant="primary" size="md">
                           {featuredTryouts[carouselIndex].teams.sport}
                         </AppleBadge>
                       </div>
-                      <p className="text-[rgb(86,88,105)] mb-6">{featuredTryouts[carouselIndex].description}</p>
-                      <div className="grid grid-cols-2 gap-4 mb-6">
+                      <p className="text-[rgb(86,88,105)] mb-4 line-clamp-3">{featuredTryouts[carouselIndex].description}</p>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
                         <AppleMetadataRow
                           icon={<Calendar className="w-5 h-5" />}
                           value={formatDate(featuredTryouts[carouselIndex].date)}
@@ -446,9 +566,17 @@ export default function Tryouts() {
                       )}
                     </div>
                     <div className="hidden md:flex items-center justify-center">
-                      <div className="w-full h-64 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl border-[1.5px] border-blue-200 flex items-center justify-center">
-                        <Trophy className="w-32 h-32 text-blue-300" />
-                      </div>
+                      {featuredTryouts[carouselIndex].flyer_url ? (
+                        <img
+                          src={featuredTryouts[carouselIndex].flyer_url}
+                          alt={`${featuredTryouts[carouselIndex].teams.name} tryout flyer`}
+                          className="w-full h-auto rounded-xl border-[1.5px] border-blue-200 shadow-lg"
+                        />
+                      ) : (
+                        <div className={`w-full h-96 bg-gradient-to-br ${getSportFallbackVisual(featuredTryouts[carouselIndex].sport).gradient} rounded-xl border-[1.5px] border-blue-200 flex items-center justify-center shadow-lg`}>
+                          {getSportFallbackVisual(featuredTryouts[carouselIndex].sport).icon}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -590,114 +718,128 @@ export default function Tryouts() {
                     hover
                     animateOnView
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2 flex-wrap gap-2">
-                              <h3 className="text-2xl font-bold text-[rgb(29,29,31)]">
-                                {tryout.teams.name}
-                              </h3>
-                              <AppleBadge variant="primary" size="sm">
-                                {tryout.teams.sport}
-                              </AppleBadge>
-                              {tryout.teams.age_group && (
-                                <AppleBadge variant="purple" size="sm">
-                                  {tryout.teams.age_group}
-                                </AppleBadge>
-                              )}
-                              {tryout.teams.gender && (
-                                <AppleBadge variant="info" size="sm">
-                                  {tryout.teams.gender}
-                                </AppleBadge>
-                              )}
-                            </div>
-                            {tryout.teams.organizations && (
-                              <p className="text-sm text-[rgb(134,142,150)] mb-2">
-                                {tryout.teams.organizations.name}
-                              </p>
-                            )}
-                            <p className="text-[rgb(134,142,150)]">{tryout.description}</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                          <AppleMetadataRow
-                            icon={<Calendar className="w-5 h-5" />}
-                            label="Date"
-                            value={formatDate(tryout.date)}
-                            iconColor="blue"
-                            size="sm"
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Flyer */}
+                      <div className="flex-shrink-0">
+                        {tryout.flyer_url ? (
+                          <img
+                            src={tryout.flyer_url}
+                            alt={`${tryout.teams.name} tryout flyer`}
+                            className="w-full md:w-64 h-auto rounded-lg border-[1.5px] border-slate-200 shadow-md hover:shadow-lg transition-shadow"
                           />
-                          <AppleMetadataRow
-                            icon={<Clock className="w-5 h-5" />}
-                            label="Time"
-                            value={`${formatTime(tryout.start_time)} - ${formatTime(tryout.end_time)}`}
-                            iconColor="blue"
-                            size="sm"
-                          />
-                          <AppleMetadataRow
-                            icon={<MapPin className="w-5 h-5" />}
-                            label="Location"
-                            value={
-                              <div>
-                                <p>{tryout.location}</p>
-                                {tryout.address && <p className="text-sm text-[rgb(134,142,150)]">{tryout.address}</p>}
-                              </div>
-                            }
-                            iconColor="green"
-                            size="sm"
-                          />
-                        </div>
-
-                        {tryout.requirements && (
-                          <div className="bg-blue-50 border-[1.5px] border-blue-200 rounded-lg p-4 mb-4">
-                            <h4 className="text-[rgb(29,29,31)] font-semibold mb-2 text-sm">Requirements</h4>
-                            <p className="text-[rgb(86,88,105)] text-sm">{tryout.requirements}</p>
+                        ) : (
+                          <div className={`w-full md:w-64 h-80 bg-gradient-to-br ${getSportFallbackVisual(tryout.sport).gradient} rounded-lg border-[1.5px] border-slate-200 flex items-center justify-center shadow-md`}>
+                            {getSportFallbackVisual(tryout.sport).icon}
                           </div>
                         )}
-
-                        <AppleMetadataRow
-                          icon={<Users className="w-5 h-5" />}
-                          value={
-                            <>
-                              <span className="font-semibold text-[rgb(0,113,227)]">{tryout.spots_available}</span> / {tryout.total_spots} spots
-                            </>
-                          }
-                          iconColor="blue"
-                          size="sm"
-                        />
                       </div>
 
-                      <div className="flex flex-col space-y-3 lg:w-52">
-                        {player ? (
-                          registeredTryouts.has(tryout.id) ? (
-                            <div className="w-full px-6 py-3 bg-green-50 border-[1.5px] border-green-400 text-green-700 font-semibold rounded-lg text-center flex items-center justify-center space-x-2">
-                              <CheckCircle2 className="w-5 h-5" />
-                              <span>Registered</span>
+                      {/* Content */}
+                      <div className="flex-1 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2 flex-wrap gap-2">
+                            <h3 className="text-2xl font-bold text-[rgb(29,29,31)]">
+                              {tryout.teams.name}
+                            </h3>
+                            <AppleBadge variant="primary" size="sm">
+                              {tryout.teams.sport}
+                            </AppleBadge>
+                            {tryout.teams.age_group && (
+                              <AppleBadge variant="purple" size="sm">
+                                {tryout.teams.age_group}
+                              </AppleBadge>
+                            )}
+                            {tryout.teams.gender && (
+                              <AppleBadge variant="info" size="sm">
+                                {tryout.teams.gender}
+                              </AppleBadge>
+                            )}
+                          </div>
+                          {tryout.teams.organizations && (
+                            <p className="text-sm text-[rgb(134,142,150)] mb-3">
+                              {tryout.teams.organizations.name}
+                            </p>
+                          )}
+                          <p className="text-[rgb(134,142,150)] line-clamp-3 mb-4">{tryout.description}</p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <AppleMetadataRow
+                              icon={<Calendar className="w-5 h-5" />}
+                              label="Date"
+                              value={formatDate(tryout.date)}
+                              iconColor="blue"
+                              size="sm"
+                            />
+                            <AppleMetadataRow
+                              icon={<Clock className="w-5 h-5" />}
+                              label="Time"
+                              value={`${formatTime(tryout.start_time)} - ${formatTime(tryout.end_time)}`}
+                              iconColor="blue"
+                              size="sm"
+                            />
+                            <AppleMetadataRow
+                              icon={<MapPin className="w-5 h-5" />}
+                              label="Location"
+                              value={
+                                <div>
+                                  <p>{tryout.location}</p>
+                                  {tryout.address && <p className="text-sm text-[rgb(134,142,150)]">{tryout.address}</p>}
+                                </div>
+                              }
+                              iconColor="green"
+                              size="sm"
+                            />
+                          </div>
+
+                          {tryout.requirements && (
+                            <div className="bg-blue-50 border-[1.5px] border-blue-200 rounded-lg p-4 mb-4">
+                              <h4 className="text-[rgb(29,29,31)] font-semibold mb-2 text-sm">Requirements</h4>
+                              <p className="text-[rgb(86,88,105)] text-sm">{tryout.requirements}</p>
                             </div>
+                          )}
+
+                          <AppleMetadataRow
+                            icon={<Users className="w-5 h-5" />}
+                            value={
+                              <>
+                                <span className="font-semibold text-[rgb(0,113,227)]">{tryout.spots_available}</span> / {tryout.total_spots} spots
+                              </>
+                            }
+                            iconColor="blue"
+                            size="sm"
+                          />
+                        </div>
+
+                        <div className="flex flex-col space-y-3 lg:w-52">
+                          {player ? (
+                            registeredTryouts.has(tryout.id) ? (
+                              <div className="w-full px-6 py-3 bg-green-50 border-[1.5px] border-green-400 text-green-700 font-semibold rounded-lg text-center flex items-center justify-center space-x-2">
+                                <CheckCircle2 className="w-5 h-5" />
+                                <span>Registered</span>
+                              </div>
+                            ) : (
+                              <AppleButton
+                                variant="gradient"
+                                size="md"
+                                onClick={() => handleRegisterForTryout(tryout.id)}
+                                disabled={registering === tryout.id}
+                                rightIcon={<ArrowRight className="w-5 h-5" />}
+                                fullWidth
+                              >
+                                {registering === tryout.id ? 'Registering...' : 'Register'}
+                              </AppleButton>
+                            )
                           ) : (
                             <AppleButton
                               variant="gradient"
                               size="md"
-                              onClick={() => handleRegisterForTryout(tryout.id)}
-                              disabled={registering === tryout.id}
-                              rightIcon={<ArrowRight className="w-5 h-5" />}
+                              onClick={() => navigate('/login')}
                               fullWidth
                             >
-                              {registering === tryout.id ? 'Registering...' : 'Register'}
+                              Sign In to Register
                             </AppleButton>
-                          )
-                        ) : (
-                          <AppleButton
-                            variant="gradient"
-                            size="md"
-                            onClick={() => navigate('/login')}
-                            fullWidth
-                          >
-                            Sign In to Register
-                          </AppleButton>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </AppleCard>
@@ -741,45 +883,75 @@ export default function Tryouts() {
               <div className="space-y-6">
                 {tryouts.map((tryout) => (
                   <AppleCard key={tryout.id} variant="default" padding="lg" animateOnView>
-                    <div className="flex items-start justify-between mb-6">
-                      <div>
-                        <h3 className="text-xl font-bold text-[rgb(29,29,31)] mb-1">{tryout.teams.name}</h3>
-                        <p className="text-[rgb(134,142,150)]">{formatDate(tryout.date)}</p>
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Flyer Thumbnail */}
+                      <div className="flex-shrink-0">
+                        {tryout.flyer_url ? (
+                          <img
+                            src={tryout.flyer_url}
+                            alt={`${tryout.teams.name} tryout flyer`}
+                            className="w-full md:w-48 h-64 object-cover rounded-lg border-[1.5px] border-slate-200 shadow-sm"
+                          />
+                        ) : (
+                          <div className={`w-full md:w-48 h-64 bg-gradient-to-br ${getSportFallbackVisual(tryout.sport).gradient} rounded-lg border-[1.5px] border-slate-200 flex items-center justify-center shadow-sm`}>
+                            {getSportFallbackVisual(tryout.sport).icon}
+                          </div>
+                        )}
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <AppleMetadataRow
-                        icon={<Clock className="w-5 h-5" />}
-                        label="Time"
-                        value={`${formatTime(tryout.start_time)} - ${formatTime(tryout.end_time)}`}
-                        iconColor="blue"
-                        size="sm"
-                      />
-                      <AppleMetadataRow
-                        icon={<MapPin className="w-5 h-5" />}
-                        label="Location"
-                        value={tryout.location}
-                        iconColor="green"
-                        size="sm"
-                      />
-                    </div>
+                      {/* Details */}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-6">
+                          <div>
+                            <h3 className="text-xl font-bold text-[rgb(29,29,31)] mb-1">{tryout.teams.name}</h3>
+                            <p className="text-[rgb(134,142,150)]">{formatDate(tryout.date)}</p>
+                          </div>
+                        </div>
 
-                    <div className="flex items-center justify-between">
-                      <AppleMetadataRow
-                        icon={<Users className="w-5 h-5" />}
-                        value={`Max participants: ${tryout.total_spots}`}
-                        iconColor="blue"
-                        size="sm"
-                      />
-                      <AppleButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => navigate(`/tryouts/${tryout.id}/applications`)}
-                        leftIcon={<Users className="w-4 h-4" />}
-                      >
-                        View Applications
-                      </AppleButton>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <AppleMetadataRow
+                            icon={<Clock className="w-5 h-5" />}
+                            label="Time"
+                            value={`${formatTime(tryout.start_time)} - ${formatTime(tryout.end_time)}`}
+                            iconColor="blue"
+                            size="sm"
+                          />
+                          <AppleMetadataRow
+                            icon={<MapPin className="w-5 h-5" />}
+                            label="Location"
+                            value={tryout.location}
+                            iconColor="green"
+                            size="sm"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <AppleMetadataRow
+                            icon={<Users className="w-5 h-5" />}
+                            value={`Max participants: ${tryout.total_spots}`}
+                            iconColor="blue"
+                            size="sm"
+                          />
+                          <div className="flex gap-2">
+                            <AppleButton
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditTryout(tryout)}
+                              leftIcon={<Edit className="w-4 h-4" />}
+                            >
+                              Edit
+                            </AppleButton>
+                            <AppleButton
+                              variant="primary"
+                              size="sm"
+                              onClick={() => navigate(`/tryouts/${tryout.id}/applications`)}
+                              leftIcon={<Users className="w-4 h-4" />}
+                            >
+                              View Applications
+                            </AppleButton>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </AppleCard>
                 ))}
@@ -789,11 +961,11 @@ export default function Tryouts() {
         )}
       </div>
 
-      {/* Create Tryout Modal */}
+      {/* Create/Edit Tryout Modal */}
       <AppleModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Create New Tryout"
+        onClose={handleCloseModal}
+        title={editingTryout ? 'Edit Tryout' : 'Create New Tryout'}
         size="lg"
       >
         <form onSubmit={handleCreateTryout} className="space-y-6">
@@ -895,11 +1067,54 @@ export default function Tryouts() {
             required
           />
 
+          <div>
+            <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
+              Tryout Flyer (Optional)
+            </label>
+            <div className="space-y-3">
+              {flyerPreview ? (
+                <div className="relative">
+                  <img
+                    src={flyerPreview}
+                    alt="Flyer preview"
+                    className="w-full max-w-md h-auto rounded-lg border-[1.5px] border-slate-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeFlyerPreview}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-[rgb(247,247,249)] hover:bg-slate-100 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Plus className="w-10 h-10 text-[rgb(134,142,150)] mb-3" />
+                    <p className="mb-2 text-sm text-[rgb(29,29,31)]">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-[rgb(134,142,150)]">PNG, JPG, WEBP (MAX. 5MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFlyerSelect}
+                  />
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-[rgb(134,142,150)] mt-2">
+              Upload a promotional flyer to make your tryout more attractive to players
+            </p>
+          </div>
+
           <div className="flex gap-4 pt-4">
             <AppleButton
               type="button"
               variant="outline"
-              onClick={() => setShowCreateModal(false)}
+              onClick={handleCloseModal}
               fullWidth
             >
               Cancel
@@ -911,7 +1126,9 @@ export default function Tryouts() {
               leftIcon={submitLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trophy className="w-5 h-5" />}
               fullWidth
             >
-              {submitLoading ? 'Creating...' : 'Create Tryout'}
+              {submitLoading
+                ? (editingTryout ? 'Updating...' : 'Creating...')
+                : (editingTryout ? 'Update Tryout' : 'Create Tryout')}
             </AppleButton>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, Easing } from 'framer-motion';
 import { useRef } from 'react';
 import {
@@ -6,10 +6,14 @@ import {
 } from 'lucide-react';
 import { UserTypeCard } from '@/components/UserTypeCard';
 import BentoFeatureGrid from '@/components/landing/BentoFeatureGrid';
+import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 export default function Landing() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
+  const navigate = useNavigate();
+  const { user, organization, player, trainer } = useAuth();
 
   // Apple-style custom easing
   const easeOutExpo: Easing = [0.16, 1, 0.3, 1];
@@ -21,6 +25,27 @@ export default function Landing() {
   const prefersReducedMotion = typeof window !== 'undefined'
     ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
     : false;
+
+  // Handle role selection with existing role check
+  const handleRoleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!user) return; // Not logged in, allow normal navigation
+
+    // Check if user already has a role
+    if (organization) {
+      e.preventDefault();
+      toast.error("You're already signed in as an Organization");
+      navigate('/dashboard');
+    } else if (player) {
+      e.preventDefault();
+      toast.error("You're already signed in as a Player");
+      navigate('/dashboard');
+    } else if (trainer) {
+      e.preventDefault();
+      toast.error("You're already signed in as a Trainer");
+      navigate('/dashboard');
+    }
+    // If no role exists, allow normal navigation to continue
+  };
 
   return (
     <div ref={containerRef} className="relative bg-white font-['-apple-system','BlinkMacSystemFont','SF_Pro_Display','Segoe_UI','Roboto','sans-serif']">
@@ -129,7 +154,7 @@ export default function Landing() {
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.1 }}
             >
-              <Link to="/player/profile/create" className="block h-full">
+              <Link to="/player/profile/create" className="block h-full" onClick={handleRoleClick}>
                 <UserTypeCard
                   title="Player"
                   roleLabel="Role"
@@ -147,7 +172,7 @@ export default function Landing() {
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.2 }}
             >
-              <Link to="/onboarding/organization" className="block h-full">
+              <Link to="/onboarding/organization" className="block h-full" onClick={handleRoleClick}>
                 <UserTypeCard
                   title="Organization"
                   roleLabel="Role"
@@ -165,7 +190,7 @@ export default function Landing() {
               viewport={{ once: true }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOutExpo, delay: 0.3 }}
             >
-              <Link to="/signup" className="block h-full">
+              <Link to="/signup" className="block h-full" onClick={handleRoleClick}>
                 <UserTypeCard
                   title="Trainer"
                   roleLabel="Role"

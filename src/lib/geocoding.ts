@@ -13,9 +13,10 @@ export async function geocodeAddress(
   country: string = 'USA'
 ): Promise<GeocodeResult | null> {
   try {
-    const query = [address, city, state, country].filter(Boolean).join(', ');
+    // Try with full address first
+    let query = [address, city, state, country].filter(Boolean).join(', ');
 
-    const response = await fetch(
+    let response = await fetch(
       `${NOMINATIM_BASE_URL}/search?` +
         new URLSearchParams({
           q: query,
@@ -34,7 +35,32 @@ export async function geocodeAddress(
       throw new Error('Geocoding request failed');
     }
 
-    const data = await response.json();
+    let data = await response.json();
+
+    // If full address doesn't work, try with just city, state, country
+    if ((!data || data.length === 0) && address) {
+      console.log('Full address not found, trying with just city/state...');
+      query = [city, state, country].filter(Boolean).join(', ');
+
+      response = await fetch(
+        `${NOMINATIM_BASE_URL}/search?` +
+          new URLSearchParams({
+            q: query,
+            format: 'json',
+            limit: '1',
+            addressdetails: '1',
+          }),
+        {
+          headers: {
+            'User-Agent': 'RosterUp Sports Management Platform',
+          },
+        }
+      );
+
+      if (response.ok) {
+        data = await response.json();
+      }
+    }
 
     if (data && data.length > 0) {
       const result = data[0];

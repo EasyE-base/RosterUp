@@ -38,13 +38,16 @@ export default function TournamentCreate() {
   const { organization } = useAuth();
   const navigate = useNavigate();
 
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     sport: '',
     sanctioning_body: '',
-    image_url: '',
     age_group: '',
+    event_website: '',
     classification_acceptance: 'OPEN' as TournamentClassificationAcceptance,
     accepted_classifications: [] as TeamClassification[],
     start_date: '',
@@ -65,6 +68,18 @@ export default function TournamentCreate() {
     status: 'draft',
   });
 
+  const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFlyerFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFlyerPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleGeocode = async () => {
     if (!formData.city) {
       setError('Please enter at least a city to find coordinates');
@@ -75,6 +90,13 @@ export default function TournamentCreate() {
     setError('');
 
     try {
+      console.log('Geocoding address:', {
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country
+      });
+
       const result = await geocodeAddress(
         formData.address,
         formData.city,
@@ -82,17 +104,21 @@ export default function TournamentCreate() {
         formData.country
       );
 
+      console.log('Geocoding result:', result);
+
       if (result) {
         setFormData({
           ...formData,
           latitude: result.latitude,
           longitude: result.longitude,
         });
+        setError('');
       } else {
-        setError('Could not find coordinates for this address');
+        setError('Could not find coordinates for this location. Please check the address and try again.');
       }
     } catch (err) {
-      setError('Failed to geocode address');
+      console.error('Geocoding error:', err);
+      setError(`Failed to geocode address: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setGeocoding(false);
     }
@@ -138,13 +164,37 @@ export default function TournamentCreate() {
         }
       }
 
+      // Upload flyer if provided
+      let imageUrl: string | null = null;
+      if (flyerFile) {
+        const fileExt = flyerFile.name.split('.').pop();
+        const fileName = `${organization.id}-${Date.now()}.${fileExt}`;
+        const filePath = fileName;
+
+        const { error: uploadError } = await supabase.storage
+          .from('tournament-flyers')
+          .upload(filePath, flyerFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('tournament-flyers')
+          .getPublicUrl(filePath);
+
+        imageUrl = publicUrlData.publicUrl;
+      }
+
       const { error: insertError } = await supabase.from('tournaments').insert({
         organization_id: organization.id,
         title: formData.title,
         description: formData.description,
         sport: formData.sport,
         sanctioning_body: formData.sanctioning_body || null,
-        image_url: formData.image_url || null,
+        image_url: imageUrl,
+        event_website: formData.event_website || null,
         start_date: formData.start_date,
         end_date: formData.end_date,
         registration_deadline: formData.registration_deadline,
@@ -160,6 +210,9 @@ export default function TournamentCreate() {
         entry_fee: formData.entry_fee ? parseFloat(formData.entry_fee) : null,
         prize_info: formData.prize_info || null,
         status: formData.status,
+        classification_acceptance: formData.classification_acceptance,
+        accepted_classifications: formData.accepted_classifications.length > 0 ? formData.accepted_classifications : null,
+        age_group: formData.age_group || null,
       });
 
       if (insertError) throw insertError;
@@ -298,25 +351,32 @@ export default function TournamentCreate() {
               )}
 
               <div>
-                <AppleInput
-                  label="Tournament Image URL (Optional)"
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://example.com/tournament-image.jpg"
-                  helperText="Add a cover image for your tournament. Use a direct image URL (e.g., from Unsplash, Imgur, or your own hosting)."
-                  leftIcon={<Image className="w-4 h-4 text-[rgb(175,82,222)]" />}
-                  fullWidth
-                />
-                {formData.image_url && (
-                  <div className="mt-3">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
+                  Tournament Flyer (Optional)
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFlyerSelect}
+                    className="block w-full text-sm text-[rgb(134,142,150)]
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-lg file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-[rgb(0,113,227)] file:text-white
+                      hover:file:bg-[rgb(0,113,227)]/90
+                      file:cursor-pointer cursor-pointer"
+                  />
+                  <p className="mt-2 text-xs text-[rgb(134,142,150)]">
+                    Upload a promotional flyer for your tournament (PNG, JPG, or JPEG)
+                  </p>
+                </div>
+                {flyerPreview && (
+                  <div className="mt-4">
                     <img
-                      src={formData.image_url}
-                      alt="Tournament preview"
-                      className="w-full h-48 object-cover rounded-lg border border-[rgb(210,210,215)]"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      src={flyerPreview}
+                      alt="Flyer preview"
+                      className="w-full max-w-md h-auto rounded-lg border-[1.5px] border-slate-200 shadow-sm"
                     />
                   </div>
                 )}
@@ -328,6 +388,16 @@ export default function TournamentCreate() {
                 onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
                 placeholder="e.g., 10U, 12U, 14U, 16U, 18U"
                 helperText="Specify the age group for age-specific classification rules (e.g., relaxed requirements for younger age groups)."
+                fullWidth
+              />
+
+              <AppleInput
+                label="Event Website (Optional)"
+                type="url"
+                value={formData.event_website}
+                onChange={(e) => setFormData({ ...formData, event_website: e.target.value })}
+                placeholder="https://www.yourtournament.com"
+                helperText="Add a link to your tournament's official website for more information."
                 fullWidth
               />
             </AppleCardContent>

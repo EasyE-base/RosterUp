@@ -46,18 +46,18 @@ export function Header() {
             label: 'Dashboard',
             href: '/dashboard',
         },
-        {
+        ...(profile?.user_type !== 'trainer' ? [{
             label: 'Tournaments',
             href: '/tournaments',
-        },
+        }] : []),
         ...(organization ? [{
             label: 'Players',
             href: '/players',
         }] : []),
-        {
+        ...(profile?.user_type !== 'trainer' ? [{
             label: 'Tryouts',
             href: '/tryouts',
-        },
+        }] : []),
         {
             label: 'Calendar',
             href: '/calendar',

@@ -62,7 +62,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
 
   // Choose navigation based on user type
-  const navigation = trainer ? trainerNavigation : (player ? playerNavigation : organizationNavigation);
+  const navigation = profile?.user_type === 'trainer'
+    ? trainerNavigation
+    : (profile?.user_type === 'player' ? playerNavigation : organizationNavigation);
 
   return (
     <div className="flex flex-col md:flex-row bg-[rgb(247,247,249)] w-full flex-1 h-screen overflow-hidden">

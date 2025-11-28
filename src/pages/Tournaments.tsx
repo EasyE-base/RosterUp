@@ -67,132 +67,42 @@ export default function Tournaments() {
   const { organization } = useAuth();
   const navigate = useNavigate();
 
-  // Featured tournaments - example data (will be replaced with paid featured tournaments)
-  const allFeaturedTournaments = [
-    {
-      id: 'featured-1',
-      title: 'National Championship Series',
-      sport: 'Basketball',
-      location: 'Las Vegas, NV',
-      dates: 'March 15-17, 2024',
-      prize: '$50,000',
-      teams: '64 Teams',
-      image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&q=80',
-      badge: 'Premium Event',
-      entryFee: '$500',
-    },
-    {
-      id: 'featured-2',
-      title: 'Elite Soccer Showcase',
-      sport: 'Soccer',
-      location: 'Miami, FL',
-      dates: 'April 5-7, 2024',
-      prize: '$25,000',
-      teams: '32 Teams',
-      image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&q=80',
-      badge: 'Scout Attendance',
-      entryFee: '$350',
-    },
-    {
-      id: 'featured-3',
-      title: 'Grand Slam Baseball Tournament',
-      sport: 'Baseball',
-      location: 'Phoenix, AZ',
-      dates: 'May 20-22, 2024',
-      prize: '$35,000',
-      teams: '48 Teams',
-      image: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1200&q=80',
-      badge: 'College Exposure',
-      entryFee: '$400',
-    },
-    {
-      id: 'featured-4',
-      title: 'Summer Slam Softball Classic',
-      sport: 'Softball',
-      location: 'Oklahoma City, OK',
-      dates: 'June 10-12, 2024',
-      prize: '$15,000',
-      teams: '40 Teams',
-      image: 'https://images.unsplash.com/photo-1625880275634-388c6ac3da96?w=1200&q=80',
-      badge: 'Championship Event',
-      entryFee: '$375',
-    },
-    {
-      id: 'featured-5',
-      title: 'Diamond League Softball Invitational',
-      sport: 'Softball',
-      location: 'Orlando, FL',
-      dates: 'July 15-17, 2024',
-      prize: '$20,000',
-      teams: '36 Teams',
-      image: 'https://images.unsplash.com/photo-1566577134770-3d85bb3a9cc4?w=1200&q=80',
-      badge: 'Elite Competition',
-      entryFee: '$425',
-    },
-    {
-      id: 'featured-6',
-      title: 'Premier Fastpitch Showcase',
-      sport: 'Softball',
-      location: 'San Diego, CA',
-      dates: 'August 5-7, 2024',
-      teams: '32 Teams',
-      image: '/softball-tournament-1.avif',
-      badge: 'College Scouts',
-      entryFee: '$400',
-    },
-    {
-      id: 'featured-7',
-      title: 'All-American Softball Classic',
-      sport: 'Softball',
-      location: 'Atlanta, GA',
-      dates: 'September 1-3, 2024',
-      teams: '48 Teams',
-      image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=1200&q=80',
-      badge: 'Championship Series',
-      entryFee: '$450',
-    },
-    {
-      id: 'featured-8',
-      title: 'Coastal Softball Invitational',
-      sport: 'Softball',
-      location: 'Virginia Beach, VA',
-      dates: 'September 15-17, 2024',
-      teams: '28 Teams',
-      image: 'https://images.unsplash.com/photo-1593786481097-4b8f3b7e0b3f?w=1200&q=80',
-      badge: 'Beach Tournament',
-      entryFee: '$325',
-    },
-    {
-      id: 'featured-9',
-      title: 'Midwest Softball Championship',
-      sport: 'Softball',
-      location: 'Kansas City, MO',
-      dates: 'October 6-8, 2024',
-      teams: '44 Teams',
-      image: 'https://images.unsplash.com/photo-1624526267942-ab0ff8a3e972?w=1200&q=80',
-      badge: 'Regional Championship',
-      entryFee: '$380',
-    },
-    {
-      id: 'featured-10',
-      title: 'Fall Classic Softball Tournament',
-      sport: 'Softball',
-      location: 'Denver, CO',
-      dates: 'October 20-22, 2024',
-      teams: '36 Teams',
-      image: 'https://images.unsplash.com/photo-1614632537447-f325d851a8c4?w=1200&q=80',
-      badge: 'Season Finale',
-      entryFee: '$360',
-    },
-  ];
+  // Helper function to get tournament status badge
+  const getTournamentBadge = (tournament: TournamentWithOrg) => {
+    const now = new Date();
+    const registrationDeadline = new Date(tournament.registration_deadline);
+    const daysUntilDeadline = Math.ceil((registrationDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const spotsLeft = tournament.max_participants - tournament.current_participants;
+    const percentFilled = (tournament.current_participants / tournament.max_participants) * 100;
 
-  // Filter featured tournaments based on organization's sports
-  const filteredByOrg = organization && organizationSports.length > 0
-    ? allFeaturedTournaments.filter(tournament => organizationSports.includes(tournament.sport))
-    : allFeaturedTournaments;
+    if (daysUntilDeadline <= 3 && daysUntilDeadline > 0) {
+      return { text: 'Ending Soon', icon: Clock, color: 'red' };
+    } else if (spotsLeft <= 5 && spotsLeft > 0) {
+      return { text: 'Almost Full', icon: Flame, color: 'orange' };
+    } else if (percentFilled >= 75) {
+      return { text: 'Hot', icon: Flame, color: 'orange' };
+    } else if (daysUntilDeadline <= 7) {
+      return { text: '1 Week Left', icon: Clock, color: 'yellow' };
+    }
+    return null;
+  };
 
-  // If filtering results in no tournaments, show all tournaments instead of hiding the carousel
-  const featuredTournaments = filteredByOrg.length > 0 ? filteredByOrg : allFeaturedTournaments;
+  // Derive featured tournaments from the loaded tournaments
+  // We'll take the first 5 active tournaments as "featured" for now
+  const featuredTournaments = tournaments
+    .slice(0, 5)
+    .map(t => ({
+      id: t.id,
+      title: t.title,
+      sport: t.sport,
+      location: `${t.city}, ${t.state || ''}`,
+      dates: `${new Date(t.start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${new Date(t.end_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      prize: t.prize_info || null,
+      teams: `${t.max_participants} Teams`,
+      image: t.image_url || 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&q=80', // Fallback image
+      badge: getTournamentBadge(t)?.text || 'Open Registration',
+      entryFee: t.entry_fee ? `$${t.entry_fee}` : null,
+    }));
 
   useEffect(() => {
     loadTournaments();
@@ -396,25 +306,7 @@ export default function Tournaments() {
 
   const uniqueSports = Array.from(new Set(tournaments.map((t) => t.sport))).sort();
 
-  // Helper function to get tournament status badge
-  const getTournamentBadge = (tournament: TournamentWithOrg) => {
-    const now = new Date();
-    const registrationDeadline = new Date(tournament.registration_deadline);
-    const daysUntilDeadline = Math.ceil((registrationDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    const spotsLeft = tournament.max_participants - tournament.current_participants;
-    const percentFilled = (tournament.current_participants / tournament.max_participants) * 100;
 
-    if (daysUntilDeadline <= 3 && daysUntilDeadline > 0) {
-      return { text: 'Ending Soon', icon: Clock, color: 'red' };
-    } else if (spotsLeft <= 5 && spotsLeft > 0) {
-      return { text: 'Almost Full', icon: Flame, color: 'orange' };
-    } else if (percentFilled >= 75) {
-      return { text: 'Hot', icon: Flame, color: 'orange' };
-    } else if (daysUntilDeadline <= 7) {
-      return { text: '1 Week Left', icon: Clock, color: 'yellow' };
-    }
-    return null;
-  };
 
   // Filter tournaments for "Ending Soon" section
   const endingSoon = sortedTournaments.filter(t => {
@@ -488,26 +380,32 @@ export default function Tournaments() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-6 mb-8">
-                      <div className="flex items-center space-x-2">
-                        <Trophy className="w-6 h-6 text-yellow-400" />
-                        <div>
-                          <p className="text-xs text-slate-300">Prize Pool</p>
-                          <p className="text-2xl font-bold text-yellow-400">
-                            {featuredTournaments[currentSlide].prize}
-                          </p>
-                        </div>
+                    {(featuredTournaments[currentSlide].prize || featuredTournaments[currentSlide].entryFee) && (
+                      <div className="flex items-center space-x-6 mb-8">
+                        {featuredTournaments[currentSlide].prize && (
+                          <div className="flex items-center space-x-2">
+                            <Trophy className="w-6 h-6 text-yellow-400" />
+                            <div>
+                              <p className="text-xs text-slate-300">Prize Pool</p>
+                              <p className="text-2xl font-bold text-yellow-400">
+                                {featuredTournaments[currentSlide].prize}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {featuredTournaments[currentSlide].entryFee && (
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="w-6 h-6 text-green-400" />
+                            <div>
+                              <p className="text-xs text-slate-300">Entry Fee</p>
+                              <p className="text-2xl font-bold text-white">
+                                {featuredTournaments[currentSlide].entryFee}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="w-6 h-6 text-green-400" />
-                        <div>
-                          <p className="text-xs text-slate-300">Entry Fee</p>
-                          <p className="text-2xl font-bold text-white">
-                            {featuredTournaments[currentSlide].entryFee}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
                     <AppleButton variant="gradient" size="lg">
                       View Tournament Details
@@ -538,11 +436,10 @@ export default function Tournaments() {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`h-3 rounded-full transition-all ${
-                  index === currentSlide
-                    ? 'bg-[rgb(0,113,227)] w-8'
-                    : 'bg-slate-300 hover:bg-slate-400 w-3'
-                }`}
+                className={`h-3 rounded-full transition-all ${index === currentSlide
+                  ? 'bg-[rgb(0,113,227)] w-8'
+                  : 'bg-slate-300 hover:bg-slate-400 w-3'
+                  }`}
               />
             ))}
           </div>
@@ -594,22 +491,20 @@ export default function Tournaments() {
         <div className="flex space-x-2 mb-8 border-b border-slate-200">
           <button
             onClick={() => setActiveTab('discover')}
-            className={`px-6 py-3 font-medium transition-all ${
-              activeTab === 'discover'
-                ? 'text-[rgb(0,113,227)] border-b-2 border-[rgb(0,113,227)]'
-                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
-            }`}
+            className={`px-6 py-3 font-medium transition-all ${activeTab === 'discover'
+              ? 'text-[rgb(0,113,227)] border-b-2 border-[rgb(0,113,227)]'
+              : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+              }`}
           >
             Discover Tournaments
           </button>
           {organization && (
             <button
               onClick={() => setActiveTab('manage')}
-              className={`px-6 py-3 font-medium transition-all ${
-                activeTab === 'manage'
-                  ? 'text-[rgb(0,113,227)] border-b-2 border-[rgb(0,113,227)]'
-                  : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
-              }`}
+              className={`px-6 py-3 font-medium transition-all ${activeTab === 'manage'
+                ? 'text-[rgb(0,113,227)] border-b-2 border-[rgb(0,113,227)]'
+                : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                }`}
             >
               My Tournaments
             </button>
@@ -658,21 +553,19 @@ export default function Tournaments() {
                 <div className="flex bg-white border-[1.5px] border-slate-200 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`px-4 py-3 transition-all ${
-                      viewMode === 'list'
-                        ? 'bg-[rgb(0,113,227)] text-white'
-                        : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
-                    }`}
+                    className={`px-4 py-3 transition-all ${viewMode === 'list'
+                      ? 'bg-[rgb(0,113,227)] text-white'
+                      : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                      }`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode('map')}
-                    className={`px-4 py-3 transition-all ${
-                      viewMode === 'map'
-                        ? 'bg-[rgb(0,113,227)] text-white'
-                        : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
-                    }`}
+                    className={`px-4 py-3 transition-all ${viewMode === 'map'
+                      ? 'bg-[rgb(0,113,227)] text-white'
+                      : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
+                      }`}
                   >
                     <Map className="w-5 h-5" />
                   </button>
@@ -690,9 +583,9 @@ export default function Tournaments() {
                     organization && organizationSports.length > 0
                       ? organizationSports.map((sport) => ({ value: sport, label: sport }))
                       : [
-                          { value: '', label: 'All Sports' },
-                          ...uniqueSports.map((sport) => ({ value: sport, label: sport })),
-                        ]
+                        { value: '', label: 'All Sports' },
+                        ...uniqueSports.map((sport) => ({ value: sport, label: sport })),
+                      ]
                   }
                   fullWidth
                 />
@@ -804,11 +697,10 @@ export default function Tournaments() {
                             </div>
                           )}
                           {badge && (
-                            <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full font-semibold text-sm flex items-center gap-1.5 ${
-                              badge.color === 'red' ? 'bg-red-600 text-white' :
+                            <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full font-semibold text-sm flex items-center gap-1.5 ${badge.color === 'red' ? 'bg-red-600 text-white' :
                               badge.color === 'orange' ? 'bg-orange-600 text-white' :
-                              'bg-yellow-500 text-black'
-                            }`}>
+                                'bg-yellow-500 text-black'
+                              }`}>
                               <badge.icon className="w-4 h-4" />
                               {badge.text}
                             </div>
@@ -840,11 +732,10 @@ export default function Tournaments() {
                             </div>
                             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
-                                className={`h-full transition-all ${
-                                  percentFilled >= 90 ? 'bg-red-500' :
+                                className={`h-full transition-all ${percentFilled >= 90 ? 'bg-red-500' :
                                   percentFilled >= 75 ? 'bg-orange-500' :
-                                  'bg-[rgb(0,113,227)]'
-                                }`}
+                                    'bg-[rgb(0,113,227)]'
+                                  }`}
                                 style={{ width: `${percentFilled}%` }}
                               />
                             </div>
@@ -901,11 +792,10 @@ export default function Tournaments() {
                           </div>
                         )}
                         {badge && (
-                          <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full font-semibold text-sm flex items-center gap-1.5 ${
-                            badge.color === 'red' ? 'bg-red-600 text-white' :
+                          <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full font-semibold text-sm flex items-center gap-1.5 ${badge.color === 'red' ? 'bg-red-600 text-white' :
                             badge.color === 'orange' ? 'bg-orange-600 text-white' :
-                            'bg-yellow-500 text-black'
-                          }`}>
+                              'bg-yellow-500 text-black'
+                            }`}>
                             <badge.icon className="w-4 h-4" />
                             {badge.text}
                           </div>
@@ -942,11 +832,10 @@ export default function Tournaments() {
                           </div>
                           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className={`h-full transition-all ${
-                                percentFilled >= 90 ? 'bg-red-500' :
+                              className={`h-full transition-all ${percentFilled >= 90 ? 'bg-red-500' :
                                 percentFilled >= 75 ? 'bg-orange-500' :
-                                'bg-[rgb(0,113,227)]'
-                              }`}
+                                  'bg-[rgb(0,113,227)]'
+                                }`}
                               style={{ width: `${percentFilled}%` }}
                             />
                           </div>

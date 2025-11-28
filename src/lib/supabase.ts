@@ -192,6 +192,7 @@ export interface Tryout {
   total_spots: number;
   spots_available: number;
   requirements: any;
+  flyer_url: string | null;
   status: 'open' | 'closed' | 'cancelled' | 'completed';
   created_at: string;
   updated_at: string;

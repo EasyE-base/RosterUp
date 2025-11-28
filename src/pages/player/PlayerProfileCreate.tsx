@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -15,13 +15,30 @@ import { supabase } from '../../lib/supabase';
 import { TRAVEL_SPORTS, AGE_GROUPS, getPositionsBySport, US_STATES } from '../../constants/playerConstants';
 import { CLASSIFICATION_LEVELS } from '../../constants/classifications';
 import PositionTagSelector from '../../components/player/PositionTagSelector';
+import toast from 'react-hot-toast';
 
 export default function PlayerProfileCreate() {
-  const { user } = useAuth();
+  const { user, organization, player, trainer, refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Check if user already has a role
+  useEffect(() => {
+    if (!user) return;
+
+    if (organization) {
+      toast.error("You already have an Organization account");
+      navigate('/dashboard');
+    } else if (player) {
+      toast.error("You already have a Player account");
+      navigate('/dashboard');
+    } else if (trainer) {
+      toast.error("You already have a Trainer account");
+      navigate('/dashboard');
+    }
+  }, [user, organization, player, trainer, navigate]);
 
   const [formData, setFormData] = useState({
     sport: '',
@@ -44,21 +61,12 @@ export default function PlayerProfileCreate() {
         throw new Error('You must be logged in to create a player profile');
       }
 
-      // Check if player profile already exists
-      const { data: existingProfile } = await supabase
-        .from('player_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      console.log('Submitting profile for user:', user.id);
 
-      if (existingProfile) {
-        throw new Error('You already have a player profile. Redirecting to edit...');
-      }
-
-      // Create player profile
+      // Upsert player profile (create if doesn't exist, update if it does)
       const { data, error: insertError } = await supabase
         .from('player_profiles')
-        .insert({
+        .upsert({
           user_id: user.id,
           sport: formData.sport,
           age_group: formData.age_group || null,
@@ -70,34 +78,43 @@ export default function PlayerProfileCreate() {
           photo_url: formData.photo_url || null,
           is_active: true,
           is_visible_in_search: true,
+          recruiting_status: 'open',
+        }, {
+          onConflict: 'user_id'
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
+      console.log('Profile upsert successful:', data);
+
+      // Refresh user data to update AuthContext with new player profile
+      console.log('Calling refreshUserData...');
+      await refreshUserData();
+      console.log('refreshUserData completed');
+
       setSuccess(true);
-      setTimeout(() => {
-        navigate(`/players/${data.id}`);
-      }, 1500);
+
+      // Wait a moment for React to update state before navigating
+      console.log('Waiting for state update...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('Navigating to dashboard...');
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create player profile');
-      if (err instanceof Error && err.message.includes('already have')) {
-        setTimeout(() => {
-          navigate('/player/profile');
-        }, 2000);
-      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 pt-32 pb-12">
+    <div className="min-h-screen bg-[rgb(247,247,249)] pt-32 pb-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Create Your Player Profile</h1>
-          <p className="text-slate-400">
+          <h1 className="text-4xl font-bold text-[rgb(29,29,31)] mb-2">Create Your Player Profile</h1>
+          <p className="text-[rgb(134,142,150)]">
             Get discovered by top organizations looking for talent in your sport
           </p>
         </div>
@@ -120,23 +137,23 @@ export default function PlayerProfileCreate() {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Info Section */}
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <User className="w-5 h-5 mr-2 text-blue-400" />
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6 flex items-center">
+              <User className="w-5 h-5 mr-2 text-[rgb(0,113,227)]" />
               Basic Information
             </h2>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   Primary Sport *
                 </label>
                 <select
                   value={formData.sport}
                   onChange={(e) =>
-                    setFormData({ ...formData, sport: e.target.value, position: '' })
+                    setFormData({ ...formData, sport: e.target.value, positions: [] })
                   }
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                   required
                 >
                   <option value="">Select your sport</option>
@@ -150,13 +167,13 @@ export default function PlayerProfileCreate() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                     Age Group
                   </label>
                   <select
                     value={formData.age_group}
                     onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                   >
                     <option value="">Select age group</option>
                     {AGE_GROUPS.map((group) => (
@@ -168,7 +185,7 @@ export default function PlayerProfileCreate() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                     Classification
                   </label>
                   <select
@@ -176,7 +193,7 @@ export default function PlayerProfileCreate() {
                     onChange={(e) =>
                       setFormData({ ...formData, classification: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                   >
                     <option value="">Select classification</option>
                     {CLASSIFICATION_LEVELS.map((level) => (
@@ -185,14 +202,14 @@ export default function PlayerProfileCreate() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-2 text-xs text-[rgb(134,142,150)]">
                     Your team's competitive level (A=Elite, B=Competitive, C=Developmental)
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
                   Positions (Select Multiple)
                 </label>
                 <PositionTagSelector
@@ -207,15 +224,15 @@ export default function PlayerProfileCreate() {
           </div>
 
           {/* Location Section */}
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <MapPin className="w-5 h-5 mr-2 text-green-400" />
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6 flex items-center">
+              <MapPin className="w-5 h-5 mr-2 text-[rgb(0,113,227)]" />
               Location
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">City</label>
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">City</label>
                 <input
                   type="text"
                   value={formData.location_city}
@@ -223,18 +240,18 @@ export default function PlayerProfileCreate() {
                     setFormData({ ...formData, location_city: e.target.value })
                   }
                   placeholder="e.g., San Diego"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">State</label>
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">State</label>
                 <select
                   value={formData.location_state}
                   onChange={(e) =>
                     setFormData({ ...formData, location_state: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                 >
                   <option value="">Select state</option>
                   {US_STATES.map((state) => (
@@ -248,30 +265,30 @@ export default function PlayerProfileCreate() {
           </div>
 
           {/* About Section */}
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <FileText className="w-5 h-5 mr-2 text-purple-400" />
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[rgb(29,29,31)] mb-6 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-[rgb(0,113,227)]" />
               About You
             </h2>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Bio</label>
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">Bio</label>
                 <textarea
                   value={formData.bio}
                   onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   placeholder="Tell organizations about your experience, achievements, and what you're looking for..."
                   rows={6}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                 />
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs text-[rgb(134,142,150)]">
                   {formData.bio.length} characters (min 50 recommended for better visibility)
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
-                  <ImageIcon className="w-4 h-4 mr-2 text-yellow-400" />
+                <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2 flex items-center">
+                  <ImageIcon className="w-4 h-4 mr-2 text-[rgb(0,113,227)]" />
                   Profile Photo URL (Optional)
                 </label>
                 <input
@@ -279,9 +296,9 @@ export default function PlayerProfileCreate() {
                   value={formData.photo_url}
                   onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
                   placeholder="https://example.com/your-photo.jpg"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[rgb(29,29,31)] placeholder-[rgb(134,142,150)] focus:outline-none focus:border-[rgb(0,113,227)] focus:ring-2 focus:ring-[rgb(0,113,227)]/20"
                 />
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs text-[rgb(134,142,150)]">
                   Add a professional action photo. Use a direct image URL.
                 </p>
                 {formData.photo_url && (
@@ -289,7 +306,7 @@ export default function PlayerProfileCreate() {
                     <img
                       src={formData.photo_url}
                       alt="Profile preview"
-                      className="w-32 h-32 object-cover rounded-lg border border-slate-700"
+                      className="w-32 h-32 object-cover rounded-lg border border-slate-200"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -305,14 +322,14 @@ export default function PlayerProfileCreate() {
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="flex-1 py-3 px-4 bg-slate-800/50 border border-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all"
+              className="flex-1 py-3 px-4 bg-white border border-slate-200 text-[rgb(29,29,31)] font-semibold rounded-lg hover:bg-[rgb(247,247,249)] transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !formData.sport}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 py-3 px-4 bg-[rgb(0,113,227)] text-white font-semibold rounded-lg hover:bg-[rgb(0,100,200)] hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>

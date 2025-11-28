@@ -194,12 +194,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setPlayer(null);
           setTrainer(null);
         } else if (profileData.user_type === 'player') {
-          const { data: playerData } = await supabase
+          console.log('AuthContext: Loading player profile for user:', userId);
+          const { data: playerData, error: playerError } = await supabase
             .from('player_profiles')
             .select('*')
             .eq('user_id', userId)
             .maybeSingle();
 
+          console.log('AuthContext: Player data loaded:', playerData, 'Error:', playerError);
           setPlayer(playerData);
           setOrganization(null);
           setTrainer(null);
@@ -218,7 +220,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       handleError(error, 'Failed to load profile');
     } finally {
-      setLoading(false);
+      // Only set loading to false if we are not in a redirect loop
+      if (!globalIsHandlingRedirect) {
+        setLoading(false);
+      }
     }
   };
 

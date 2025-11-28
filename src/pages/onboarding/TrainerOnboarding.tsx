@@ -1,13 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Award, Trophy, GraduationCap, MapPin, DollarSign,
-  Upload, X, Plus, CheckCircle2, Loader2, Video, Image as ImageIcon
+  Award, Trophy, MapPin, DollarSign,
+  Upload, X, Plus, Loader2, Video, Image as ImageIcon,
+  ArrowRight, ArrowLeft, CheckCircle2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { TRAVEL_SPORTS } from '../../constants/playerConstants';
+import OnboardingLayout from '../../components/onboarding/OnboardingLayout';
+import toast from 'react-hot-toast';
 
 interface BackgroundItem {
   year: string;
@@ -25,8 +27,24 @@ export default function TrainerOnboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user, refreshUserData } = useAuth();
+  const { user, organization, player, trainer, refreshUserData } = useAuth();
   const navigate = useNavigate();
+
+  // Check if user already has any role
+  useEffect(() => {
+    if (!user) return;
+
+    if (organization) {
+      toast.error("You already have an Organization account");
+      navigate('/dashboard');
+    } else if (player) {
+      toast.error("You already have a Player account");
+      navigate('/dashboard');
+    } else if (trainer) {
+      toast.error("You already have a Trainer account");
+      navigate('/dashboard');
+    }
+  }, [user, organization, player, trainer, navigate]);
 
   // Step 1: Brand Yourself
   const [headshotFile, setHeadshotFile] = useState<File | null>(null);
@@ -254,619 +272,573 @@ export default function TrainerOnboarding() {
     }
   };
 
+  const stepTitles = ['Brand', 'Credentials', 'Service Area'];
+
   return (
-    <div className="min-h-screen bg-[rgb(247,247,249)] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-4xl">
-        <div className="bg-white backdrop-blur-xl border border-slate-200 rounded-2xl p-8 shadow-xl">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-[rgb(0,113,227)]/10 flex items-center justify-center">
-                <Award className="w-8 h-8 text-[rgb(0,113,227)]" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold text-center text-[rgb(29,29,31)] mb-2">
-              Trainer Profile Setup
-            </h1>
-            <p className="text-center text-[rgb(134,142,150)]">
-              Step {step} of 3
-            </p>
-          </div>
+    <OnboardingLayout
+      title="Trainer Profile Setup"
+      subtitle="Build your coaching brand"
+      currentStep={step}
+      totalSteps={3}
+      stepTitles={stepTitles}
+    >
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-600">
+          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+          <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
 
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step >= 1 ? 'bg-[rgb(0,113,227)] text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
-                  {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
-                </div>
-                <span className="text-sm font-medium text-[rgb(29,29,31)]">Brand</span>
-              </div>
-              <div className="flex-1 h-1 mx-4 bg-slate-200 rounded">
+      <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-8">
+        {step === 1 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Profile Photos & Videos */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Headshot */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                  Profile Photo
+                </label>
                 <div
-                  className="h-full bg-[rgb(0,113,227)] rounded transition-all duration-300"
-                  style={{ width: step >= 2 ? '100%' : '0%' }}
+                  onClick={() => headshotInputRef.current?.click()}
+                  className="relative border-2 border-dashed border-[#D2D2D7] rounded-xl p-6 hover:border-[#0071E3] hover:bg-[#F5F5F7] transition-all cursor-pointer group aspect-square flex flex-col items-center justify-center"
+                >
+                  {headshotPreview ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={headshotPreview}
+                        alt="Headshot preview"
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHeadshotFile(null);
+                          setHeadshotPreview('');
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-white/90 text-[#1D1D1F] rounded-full hover:bg-white shadow-sm"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <ImageIcon className="w-10 h-10 mx-auto mb-3 text-[#86868B] group-hover:text-[#0071E3] transition-colors" />
+                      <p className="text-sm font-medium text-[#1D1D1F]">
+                        Upload Photo
+                      </p>
+                      <p className="text-xs text-[#86868B] mt-1">
+                        Max 10MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={headshotInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleHeadshotUpload}
+                  className="hidden"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step >= 2 ? 'bg-[rgb(0,113,227)] text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
-                  {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : '2'}
-                </div>
-                <span className="text-sm font-medium text-[rgb(29,29,31)]">Credentials</span>
-              </div>
-              <div className="flex-1 h-1 mx-4 bg-slate-200 rounded">
+
+              {/* Intro Video */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                  Intro Video <span className="text-[#86868B] font-normal">(Optional)</span>
+                </label>
                 <div
-                  className="h-full bg-[rgb(0,113,227)] rounded transition-all duration-300"
-                  style={{ width: step >= 3 ? '100%' : '0%' }}
+                  onClick={() => videoInputRef.current?.click()}
+                  className="relative border-2 border-dashed border-[#D2D2D7] rounded-xl p-6 hover:border-[#0071E3] hover:bg-[#F5F5F7] transition-all cursor-pointer group aspect-square flex flex-col items-center justify-center"
+                >
+                  {introVideoPreview ? (
+                    <div className="relative w-full h-full">
+                      <video
+                        src={introVideoPreview}
+                        className="w-full h-full object-cover rounded-lg"
+                        controls
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIntroVideoFile(null);
+                          setIntroVideoPreview('');
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-white/90 text-[#1D1D1F] rounded-full hover:bg-white shadow-sm"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <Video className="w-10 h-10 mx-auto mb-3 text-[#86868B] group-hover:text-[#0071E3] transition-colors" />
+                      <p className="text-sm font-medium text-[#1D1D1F]">
+                        Upload Video
+                      </p>
+                      <p className="text-xs text-[#86868B] mt-1">
+                        Max 500MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm"
+                  onChange={handleVideoUpload}
+                  className="hidden"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step >= 3 ? 'bg-[rgb(0,113,227)] text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
-                  3
-                </div>
-                <span className="text-sm font-medium text-[rgb(29,29,31)]">Service Area</span>
+            </div>
+
+            {/* Tagline */}
+            <div>
+              <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                Tagline
+              </label>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                placeholder="e.g., Former MLB Player | Hitting Specialist"
+                className="w-full px-4 py-4 bg-[#F5F5F7] border-none rounded-xl text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                required
+              />
+            </div>
+
+            {/* Bio */}
+            <div>
+              <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                Bio
+              </label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={4}
+                placeholder="Tell players about yourself and your coaching philosophy..."
+                className="w-full px-4 py-4 bg-[#F5F5F7] border-none rounded-xl text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all resize-none"
+              />
+            </div>
+
+            {/* Sports Selection */}
+            <div>
+              <label className="block text-sm font-semibold text-[#1D1D1F] mb-3">
+                Sports You Train
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {TRAVEL_SPORTS.map((sport) => (
+                  <button
+                    key={sport.value}
+                    type="button"
+                    onClick={() => toggleSport(sport.value)}
+                    className={`px-4 py-3 rounded-xl border transition-all flex items-center justify-center gap-2 ${sports.includes(sport.value)
+                        ? 'bg-[#0071E3] border-[#0071E3] text-white shadow-md shadow-blue-500/20'
+                        : 'bg-white border-[#D2D2D7] text-[#1D1D1F] hover:border-[#0071E3] hover:text-[#0071E3]'
+                      }`}
+                  >
+                    <Trophy className="w-4 h-4" />
+                    <span className="font-medium">{sport.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {error}
-            </div>
-          )}
-
-          {/* Step Content */}
-          <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}>
-            <AnimatePresence mode="wait">
-              {/* STEP 1: BRAND YOURSELF */}
-              {step === 1 && (
-                <motion.div
-                  key="step1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
-                >
-                  {/* Profile Photos & Videos */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Headshot */}
-                    <div>
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                        Profile Photo
-                      </label>
-                      <div
-                        onClick={() => headshotInputRef.current?.click()}
-                        className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 hover:border-[rgb(0,113,227)] transition-colors cursor-pointer group"
-                      >
-                        {headshotPreview ? (
-                          <div className="relative">
-                            <img
-                              src={headshotPreview}
-                              alt="Headshot preview"
-                              className="w-full h-48 object-cover rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setHeadshotFile(null);
-                                setHeadshotPreview('');
-                              }}
-                              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <ImageIcon className="w-12 h-12 mx-auto mb-2 text-slate-400 group-hover:text-[rgb(0,113,227)]" />
-                            <p className="text-sm text-[rgb(134,142,150)]">
-                              Click to upload photo
-                            </p>
-                            <p className="text-xs text-[rgb(134,142,150)] mt-1">
-                              Max 10MB (JPG, PNG)
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <input
-                        ref={headshotInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={handleHeadshotUpload}
-                        className="hidden"
-                      />
-                    </div>
-
-                    {/* Intro Video */}
-                    <div>
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                        Intro Video (Optional)
-                      </label>
-                      <div
-                        onClick={() => videoInputRef.current?.click()}
-                        className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 hover:border-[rgb(0,113,227)] transition-colors cursor-pointer group"
-                      >
-                        {introVideoPreview ? (
-                          <div className="relative">
-                            <video
-                              src={introVideoPreview}
-                              className="w-full h-48 object-cover rounded-lg"
-                              controls
-                            />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIntroVideoFile(null);
-                                setIntroVideoPreview('');
-                              }}
-                              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <Video className="w-12 h-12 mx-auto mb-2 text-slate-400 group-hover:text-[rgb(0,113,227)]" />
-                            <p className="text-sm text-[rgb(134,142,150)]">
-                              Click to upload video
-                            </p>
-                            <p className="text-xs text-[rgb(134,142,150)] mt-1">
-                              Max 500MB (MP4, MOV)
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <input
-                        ref={videoInputRef}
-                        type="file"
-                        accept="video/mp4,video/quicktime,video/webm"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tagline */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Tagline *
-                    </label>
-                    <input
-                      type="text"
-                      value={tagline}
-                      onChange={(e) => setTagline(e.target.value)}
-                      placeholder="e.g., Former MLB Player | Hitting Specialist"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)] focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  {/* Bio */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Bio
-                    </label>
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      rows={4}
-                      placeholder="Tell players about yourself and your coaching philosophy..."
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)] focus:border-transparent resize-none"
-                    />
-                  </div>
-
-                  {/* Sports Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Sports You Train *
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {TRAVEL_SPORTS.map((sport) => (
-                        <button
-                          key={sport}
-                          type="button"
-                          onClick={() => toggleSport(sport)}
-                          className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                            sports.includes(sport)
-                              ? 'bg-[rgb(0,113,227)]/10 border-[rgb(0,113,227)] text-[rgb(0,113,227)]'
-                              : 'bg-white border-slate-200 text-[rgb(134,142,150)] hover:border-slate-300'
-                          }`}
-                        >
-                          <Trophy className="w-4 h-4 inline mr-2" />
-                          {sport}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Specializations */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Specializations
-                    </label>
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={newSpecialization}
-                        onChange={(e) => setNewSpecialization(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
-                        placeholder="e.g., Hitting, Pitching, Speed Training..."
-                        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={addSpecialization}
-                        className="px-4 py-2 bg-[rgb(0,113,227)] text-white rounded-lg hover:bg-blue-600"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {specializations.map((spec, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgb(0,113,227)]/10 text-[rgb(0,113,227)] rounded-full text-sm"
-                        >
-                          {spec}
-                          <button
-                            type="button"
-                            onClick={() => removeSpecialization(spec)}
-                            className="hover:text-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-xs text-[rgb(134,142,150)] mt-2">
-                      Suggestions: {commonSpecializations.filter(s => !specializations.includes(s)).slice(0, 5).join(', ')}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* STEP 2: CREDENTIALS */}
-              {step === 2 && (
-                <motion.div
-                  key="step2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-8"
-                >
-                  {/* Athletic Background */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)]">
-                        Athletic Background
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => addBackgroundItem('athletic')}
-                        className="text-sm text-[rgb(0,113,227)] hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Experience
-                      </button>
-                    </div>
-                    <div className="space-y-4">
-                      {athleticBackground.map((item, idx) => (
-                        <div key={idx} className="p-4 bg-[rgb(247,247,249)] rounded-lg border border-slate-200">
-                          <div className="grid md:grid-cols-3 gap-3 mb-3">
-                            <input
-                              type="text"
-                              placeholder="Year (e.g., 2015-2018)"
-                              value={item.year}
-                              onChange={(e) => updateBackgroundItem('athletic', idx, 'year', e.target.value)}
-                              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Title/Position"
-                              value={item.title}
-                              onChange={(e) => updateBackgroundItem('athletic', idx, 'title', e.target.value)}
-                              className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <textarea
-                              placeholder="Description..."
-                              value={item.description}
-                              onChange={(e) => updateBackgroundItem('athletic', idx, 'description', e.target.value)}
-                              rows={2}
-                              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)] resize-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeBackgroundItem('athletic', idx)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {athleticBackground.length === 0 && (
-                        <p className="text-sm text-[rgb(134,142,150)] text-center py-4">
-                          No athletic background added yet. Click "Add Experience" to get started.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Coaching Background */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)]">
-                        Coaching Background
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => addBackgroundItem('coaching')}
-                        className="text-sm text-[rgb(0,113,227)] hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Experience
-                      </button>
-                    </div>
-                    <div className="space-y-4">
-                      {coachingBackground.map((item, idx) => (
-                        <div key={idx} className="p-4 bg-[rgb(247,247,249)] rounded-lg border border-slate-200">
-                          <div className="grid md:grid-cols-3 gap-3 mb-3">
-                            <input
-                              type="text"
-                              placeholder="Year (e.g., 2018-Present)"
-                              value={item.year}
-                              onChange={(e) => updateBackgroundItem('coaching', idx, 'year', e.target.value)}
-                              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Role/Organization"
-                              value={item.title}
-                              onChange={(e) => updateBackgroundItem('coaching', idx, 'title', e.target.value)}
-                              className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <textarea
-                              placeholder="Description..."
-                              value={item.description}
-                              onChange={(e) => updateBackgroundItem('coaching', idx, 'description', e.target.value)}
-                              rows={2}
-                              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)] resize-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeBackgroundItem('coaching', idx)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {coachingBackground.length === 0 && (
-                        <p className="text-sm text-[rgb(134,142,150)] text-center py-4">
-                          No coaching background added yet. Click "Add Experience" to get started.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Certifications */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)]">
-                        Certifications & Awards
-                      </label>
-                      <button
-                        type="button"
-                        onClick={addCertification}
-                        className="text-sm text-[rgb(0,113,227)] hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Certification
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {certifications.map((cert, idx) => (
-                        <div key={idx} className="p-4 bg-[rgb(247,247,249)] rounded-lg border border-slate-200">
-                          <div className="flex gap-3">
-                            <div className="flex-1 grid md:grid-cols-3 gap-3">
-                              <input
-                                type="text"
-                                placeholder="Certification Name"
-                                value={cert.name}
-                                onChange={(e) => updateCertification(idx, 'name', e.target.value)}
-                                className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Issuing Organization"
-                                value={cert.issuer}
-                                onChange={(e) => updateCertification(idx, 'issuer', e.target.value)}
-                                className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Year"
-                                value={cert.year}
-                                onChange={(e) => updateCertification(idx, 'year', e.target.value)}
-                                className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeCertification(idx)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {certifications.length === 0 && (
-                        <p className="text-sm text-[rgb(134,142,150)] text-center py-4">
-                          No certifications added yet. Click "Add Certification" to get started.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* STEP 3: SERVICE AREA */}
-              {step === 3 && (
-                <motion.div
-                  key="step3"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
-                >
-                  {/* Location */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Primary Location *
-                    </label>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="City"
-                        className="px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                        required
-                      />
-                      <input
-                        type="text"
-                        value={state}
-                        onChange={(e) => setState(e.target.value)}
-                        placeholder="State"
-                        className="px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Travel Radius */}
-                  <div>
-                    <label className="block text-sm font-medium text-[rgb(29,29,31)] mb-2">
-                      Travel Radius: {travelRadius} miles
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={travelRadius}
-                      onChange={(e) => setTravelRadius(parseInt(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[rgb(0,113,227)]"
-                    />
-                    <div className="flex justify-between text-xs text-[rgb(134,142,150)] mt-1">
-                      <span>Local only</span>
-                      <span>100+ miles</span>
-                    </div>
-                  </div>
-
-                  {/* Pricing */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-sm font-medium text-[rgb(29,29,31)]">
-                        Pricing (Optional)
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={showPricing}
-                          onChange={(e) => setShowPricing(e.target.checked)}
-                          className="w-4 h-4 text-[rgb(0,113,227)] focus:ring-[rgb(0,113,227)] rounded"
-                        />
-                        <span className="text-sm text-[rgb(134,142,150)]">Display on profile</span>
-                      </label>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-[rgb(134,142,150)] mb-1">
-                          1-on-1 Rate ($/hour)
-                        </label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
-                          <input
-                            type="number"
-                            value={hourlyRate}
-                            onChange={(e) => setHourlyRate(e.target.value)}
-                            placeholder="75"
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-[rgb(134,142,150)] mb-1">
-                          Group Rate ($/hour)
-                        </label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgb(134,142,150)]" />
-                          <input
-                            type="number"
-                            value={groupRate}
-                            onChange={(e) => setGroupRate(e.target.value)}
-                            placeholder="50"
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(0,113,227)]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-[rgb(134,142,150)] mt-2">
-                      Pricing is optional and can be updated later. Players can contact you to discuss rates.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Navigation Buttons */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
-              {step > 1 && (
+            {/* Specializations */}
+            <div>
+              <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                Specializations
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={newSpecialization}
+                  onChange={(e) => setNewSpecialization(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
+                  placeholder="e.g., Hitting, Pitching, Speed Training..."
+                  className="flex-1 px-4 py-3 bg-[#F5F5F7] border-none rounded-xl text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                />
                 <button
                   type="button"
-                  onClick={() => setStep(step - 1)}
-                  className="px-6 py-3 text-[rgb(0,113,227)] hover:bg-[rgb(0,113,227)]/10 rounded-lg transition-colors"
+                  onClick={addSpecialization}
+                  className="px-4 py-3 bg-[#0071E3] text-white rounded-xl hover:bg-[#0077ED] transition-colors"
                 >
-                  Back
-                </button>
-              )}
-              <div className={step === 1 ? 'ml-auto' : ''}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-8 py-3 bg-[rgb(0,113,227)] text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Saving...
-                    </>
-                  ) : step === 3 ? (
-                    'Complete Setup'
-                  ) : (
-                    'Next Step'
-                  )}
+                  <Plus className="w-5 h-5" />
                 </button>
               </div>
+              <div className="flex flex-wrap gap-2">
+                {specializations.map((spec, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-[#0071E3] rounded-full text-sm font-medium"
+                  >
+                    {spec}
+                    <button
+                      type="button"
+                      onClick={() => removeSpecialization(spec)}
+                      className="hover:text-blue-800"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-[#86868B] mt-2">
+                Suggestions: {commonSpecializations.filter(s => !specializations.includes(s)).slice(0, 5).join(', ')}
+              </p>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+
+            <div className="pt-4">
+              <button
+                type="button"
+                onClick={handleNext}
+                className="w-full py-4 bg-[#0071E3] hover:bg-[#0077ED] text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 group"
+              >
+                Continue
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Athletic Background */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-semibold text-[#1D1D1F]">
+                  Athletic Background
+                </label>
+                <button
+                  type="button"
+                  onClick={() => addBackgroundItem('athletic')}
+                  className="text-sm text-[#0071E3] hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Experience
+                </button>
+              </div>
+              <div className="space-y-4">
+                {athleticBackground.map((item, idx) => (
+                  <div key={idx} className="p-4 bg-[#F5F5F7] rounded-xl border border-transparent hover:border-[#D2D2D7] transition-all">
+                    <div className="grid md:grid-cols-3 gap-3 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Year (e.g., 2015-2018)"
+                        value={item.year}
+                        onChange={(e) => updateBackgroundItem('athletic', idx, 'year', e.target.value)}
+                        className="px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Title/Position"
+                        value={item.title}
+                        onChange={(e) => updateBackgroundItem('athletic', idx, 'title', e.target.value)}
+                        className="md:col-span-2 px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <textarea
+                        placeholder="Description..."
+                        value={item.description}
+                        onChange={(e) => updateBackgroundItem('athletic', idx, 'description', e.target.value)}
+                        rows={2}
+                        className="flex-1 px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 resize-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeBackgroundItem('athletic', idx)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {athleticBackground.length === 0 && (
+                  <div className="text-center py-8 bg-[#F5F5F7] rounded-xl border border-dashed border-[#D2D2D7]">
+                    <p className="text-sm text-[#86868B]">No athletic background added yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Coaching Background */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-semibold text-[#1D1D1F]">
+                  Coaching Background
+                </label>
+                <button
+                  type="button"
+                  onClick={() => addBackgroundItem('coaching')}
+                  className="text-sm text-[#0071E3] hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Experience
+                </button>
+              </div>
+              <div className="space-y-4">
+                {coachingBackground.map((item, idx) => (
+                  <div key={idx} className="p-4 bg-[#F5F5F7] rounded-xl border border-transparent hover:border-[#D2D2D7] transition-all">
+                    <div className="grid md:grid-cols-3 gap-3 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Year (e.g., 2018-Present)"
+                        value={item.year}
+                        onChange={(e) => updateBackgroundItem('coaching', idx, 'year', e.target.value)}
+                        className="px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Role/Organization"
+                        value={item.title}
+                        onChange={(e) => updateBackgroundItem('coaching', idx, 'title', e.target.value)}
+                        className="md:col-span-2 px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <textarea
+                        placeholder="Description..."
+                        value={item.description}
+                        onChange={(e) => updateBackgroundItem('coaching', idx, 'description', e.target.value)}
+                        rows={2}
+                        className="flex-1 px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 resize-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeBackgroundItem('coaching', idx)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {coachingBackground.length === 0 && (
+                  <div className="text-center py-8 bg-[#F5F5F7] rounded-xl border border-dashed border-[#D2D2D7]">
+                    <p className="text-sm text-[#86868B]">No coaching background added yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Certifications */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-semibold text-[#1D1D1F]">
+                  Certifications & Awards
+                </label>
+                <button
+                  type="button"
+                  onClick={addCertification}
+                  className="text-sm text-[#0071E3] hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Certification
+                </button>
+              </div>
+              <div className="space-y-3">
+                {certifications.map((cert, idx) => (
+                  <div key={idx} className="p-4 bg-[#F5F5F7] rounded-xl border border-transparent hover:border-[#D2D2D7] transition-all">
+                    <div className="flex gap-3">
+                      <div className="flex-1 grid md:grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Certification Name"
+                          value={cert.name}
+                          onChange={(e) => updateCertification(idx, 'name', e.target.value)}
+                          className="px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Issuing Organization"
+                          value={cert.issuer}
+                          onChange={(e) => updateCertification(idx, 'issuer', e.target.value)}
+                          className="px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Year"
+                          value={cert.year}
+                          onChange={(e) => updateCertification(idx, 'year', e.target.value)}
+                          className="px-3 py-2 bg-white border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCertification(idx)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {certifications.length === 0 && (
+                  <div className="text-center py-8 bg-[#F5F5F7] rounded-xl border border-dashed border-[#D2D2D7]">
+                    <p className="text-sm text-[#86868B]">No certifications added yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 py-4 bg-[#F5F5F7] hover:bg-[#E5E5EA] text-[#1D1D1F] font-semibold rounded-xl transition-all flex items-center justify-center gap-2 group"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="flex-[2] py-4 bg-[#0071E3] hover:bg-[#0077ED] text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 group"
+              >
+                Continue
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Location */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                  City
+                </label>
+                <div className="relative group">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#86868B] group-focus-within:text-[#0071E3] transition-colors" />
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="San Diego"
+                    className="w-full pl-12 pr-4 py-4 bg-[#F5F5F7] border-none rounded-xl text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                  State
+                </label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="CA"
+                  className="w-full px-4 py-4 bg-[#F5F5F7] border-none rounded-xl text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Travel Radius */}
+            <div>
+              <label className="block text-sm font-semibold text-[#1D1D1F] mb-4">
+                Travel Radius: <span className="text-[#0071E3]">{travelRadius} miles</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={travelRadius}
+                onChange={(e) => setTravelRadius(parseInt(e.target.value))}
+                className="w-full h-2 bg-[#E5E5EA] rounded-lg appearance-none cursor-pointer accent-[#0071E3]"
+              />
+              <div className="flex justify-between text-xs text-[#86868B] mt-2 font-medium">
+                <span>Local only</span>
+                <span>100+ miles</span>
+              </div>
+            </div>
+
+            {/* Pricing */}
+            <div className="bg-white rounded-xl p-6 border border-[#E5E5EA]">
+              <div className="flex items-center justify-between mb-6">
+                <label className="block text-sm font-semibold text-[#1D1D1F]">
+                  Pricing <span className="text-[#86868B] font-normal">(Optional)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPricing}
+                    onChange={(e) => setShowPricing(e.target.checked)}
+                    className="w-4 h-4 text-[#0071E3] focus:ring-[#0071E3] rounded border-gray-300"
+                  />
+                  <span className="text-sm text-[#1D1D1F]">Display on profile</span>
+                </label>
+              </div>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-medium text-[#86868B] mb-2 uppercase tracking-wide">
+                    1-on-1 Rate ($/hour)
+                  </label>
+                  <div className="relative group">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868B] group-focus-within:text-[#0071E3] transition-colors" />
+                    <input
+                      type="number"
+                      value={hourlyRate}
+                      onChange={(e) => setHourlyRate(e.target.value)}
+                      placeholder="75"
+                      className="w-full pl-10 pr-4 py-3 bg-[#F5F5F7] border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#86868B] mb-2 uppercase tracking-wide">
+                    Group Rate ($/hour)
+                  </label>
+                  <div className="relative group">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868B] group-focus-within:text-[#0071E3] transition-colors" />
+                    <input
+                      type="number"
+                      value={groupRate}
+                      onChange={(e) => setGroupRate(e.target.value)}
+                      placeholder="50"
+                      className="w-full pl-10 pr-4 py-3 bg-[#F5F5F7] border-none rounded-lg text-[#1D1D1F] placeholder-[#86868B] focus:ring-2 focus:ring-[#0071E3]/30 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-[#86868B] mt-4">
+                Pricing is optional and can be updated later. Players can contact you to discuss rates.
+              </p>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="flex-1 py-4 bg-[#F5F5F7] hover:bg-[#E5E5EA] text-[#1D1D1F] font-semibold rounded-xl transition-all flex items-center justify-center gap-2 group"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-[2] py-4 bg-[#0071E3] hover:bg-[#0077ED] text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Creating Profile...</span>
+                  </>
+                ) : (
+                  <span>Complete Setup</span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+    </OnboardingLayout>
   );
 }

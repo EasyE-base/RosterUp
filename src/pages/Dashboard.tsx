@@ -265,6 +265,11 @@ export default function Dashboard() {
                   Create Team
                 </AppleButton>
               </Link>
+              <Link to="/tryouts">
+                <AppleButton variant="primary" leftIcon={<Plus className="w-5 h-5" />}>
+                  Create Tryout
+                </AppleButton>
+              </Link>
             </div>
           </div>
 

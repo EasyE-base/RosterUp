@@ -8,7 +8,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const { user, organization, player } = useAuth();
+  const { user, organization, player, profile } = useAuth();
 
   useEffect(() => {
     const controlNavbar = () => {
@@ -37,9 +37,8 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`sticky w-full top-0 z-50 bg-transparent transition-transform duration-300 ${
-        isVisible ? 'translate-y-0' : '-translate-y-full'
-      }`}
+      className={`sticky w-full top-0 z-50 bg-transparent transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-32">
@@ -68,17 +67,22 @@ export default function Navbar() {
                 <Link to="/dashboard" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
                   Dashboard
                 </Link>
-                <Link to="/tournaments" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
-                  Tournaments
-                </Link>
-                {organization && (
-                  <Link to="/players" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
-                    Players
-                  </Link>
+                {/* Hide Tournaments and Tryouts for Trainers */}
+                {profile && profile.user_type !== 'trainer' && (
+                  <>
+                    <Link to="/tournaments" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
+                      Tournaments
+                    </Link>
+                    {organization && (
+                      <Link to="/players" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
+                        Players
+                      </Link>
+                    )}
+                    <Link to="/tryouts" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
+                      Tryouts
+                    </Link>
+                  </>
                 )}
-                <Link to="/tryouts" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
-                  Tryouts
-                </Link>
                 <Link to="/calendar" className="text-slate-950 hover:text-slate-700 transition-colors font-medium">
                   Calendar
                 </Link>
@@ -124,29 +128,33 @@ export default function Navbar() {
                 >
                   Dashboard
                 </Link>
-                <Link
-                  to="/tournaments"
-                  className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Tournaments
-                </Link>
-                {organization && (
-                  <Link
-                    to="/players"
-                    className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Players
-                  </Link>
+                {profile && profile.user_type !== 'trainer' && (
+                  <>
+                    <Link
+                      to="/tournaments"
+                      className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Tournaments
+                    </Link>
+                    {organization && (
+                      <Link
+                        to="/players"
+                        className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Players
+                      </Link>
+                    )}
+                    <Link
+                      to="/tryouts"
+                      className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Tryouts
+                    </Link>
+                  </>
                 )}
-                <Link
-                  to="/tryouts"
-                  className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Tryouts
-                </Link>
                 <Link
                   to="/calendar"
                   className="block px-4 py-2 text-slate-950 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"

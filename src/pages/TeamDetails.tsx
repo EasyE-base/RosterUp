@@ -627,7 +627,7 @@ export default function TeamDetails() {
                   : 'text-[rgb(134,142,150)] hover:text-[rgb(29,29,31)]'
                   }`}
               >
-                Add Guest Player
+                Add New Player
                 {activePlayerTab === 'guest' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(0,113,227)] rounded-t-full" />
                 )}

@@ -377,15 +377,15 @@ export default function TournamentDetails() {
           <div className="lg:col-span-2 space-y-6">
             <AppleCard>
               {/* Tournament Image */}
-              <div className="relative h-64 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-2xl">
+              <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-2xl">
                 {tournament.image_url ? (
                   <img
                     src={tournament.image_url}
                     alt={tournament.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-full h-64 flex items-center justify-center">
                     <ImageIcon className="w-20 h-20 text-slate-300" />
                   </div>
                 )}

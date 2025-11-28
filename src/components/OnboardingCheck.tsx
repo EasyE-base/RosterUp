@@ -29,8 +29,11 @@ export default function OnboardingCheck({ children }: { children: React.ReactNod
   }
 
   if (profile.user_type === 'player' && !player) {
+    console.log('OnboardingCheck: Player profile not found, redirecting to /onboarding/player');
     return <Navigate to="/onboarding/player" replace />;
   }
+
+  console.log('OnboardingCheck: Player profile exists:', player ? 'YES' : 'NO', player);
 
   if (profile.user_type === 'trainer' && !trainer) {
     return <Navigate to="/onboarding/trainer" replace />;
